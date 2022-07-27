@@ -25,71 +25,62 @@ import java.util.Map;
 @RequestMapping("/api/v1/nuxeo")
 public class NuxeoRestController {
 
-	private final Environment env;
-	private final NuxeoManagerService service;
+    private final Environment env;
+    private final NuxeoManagerService service;
 
-	final static Logger logger = LoggerFactory.getLogger(NuxeoRestController.class);
+    final static Logger logger = LoggerFactory.getLogger(NuxeoRestController.class);
 
-	public NuxeoRestController(Environment env, NuxeoManagerService service) {
-		this.env = env;
-		this.service = service;
-	}
+    public NuxeoRestController(Environment env, NuxeoManagerService service) {
+        this.env = env;
+        this.service = service;
+    }
 
-	@Value("${configuracion.ambiente}")
-	private String config;
-
-
-	@GetMapping("/get-config")
-	public ResponseEntity getConfig() {
-		System.out.println("get-config invocado");
-		Map<String, String> map = new HashMap<>();
-		map.put("config", config);
-		return ResponseEntity.ok(map);
-	}
+    @Value("${configuracion.ambiente}")
+    private String config;
 
 
-	@RequestMapping(value="/newonboading",method = RequestMethod.POST, consumes = {MediaType.ALL_VALUE})
-	public @ResponseBody ResponseEntity<?> newOnboarding(@RequestParam @RequestBody String name,
-														 @RequestPart List<MultipartFile> files) {
-		System.out.println("nuevo onboading invocado");
-		//		if(result.hasErrors()) {
-		//			logger.error("Error in validated {} ", result.getFieldErrors());
-		//			return ResponseEntity.status(
-		//					HttpStatus.BAD_REQUEST).body(
-		//					ErrorMessage.formatMessages("nuxeo-manager-service", result.getFieldErrors()));
-		//		}
+    @GetMapping("/get-config")
+    public ResponseEntity getConfig() {
+        System.out.println("get-config invocado");
+        Map<String, String> map = new HashMap<>();
+        map.put("config", config);
+        return ResponseEntity.ok(map);
+    }
 
-		try {
-			DocumentDTO docu = new DocumentDTO();
-			docu.name = name;
-			docu.fileList = new ArrayList<>();
 
-			files.forEach(multipartFile -> {
-				try {
-					docu.fileList.add(multipartToFile(multipartFile, multipartFile.getOriginalFilename()));
-					//docu.multipartFiles.add(multipartFile);
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-			});
+    @RequestMapping(value = "/newonboading", method = RequestMethod.POST, consumes = {MediaType.ALL_VALUE})
+    public @ResponseBody ResponseEntity<?> newOnboarding(@RequestParam @RequestBody String name,
+                                                         @RequestPart List<MultipartFile> files) {
+        try {
+            DocumentDTO docu = new DocumentDTO();
+            docu.name = name;
+            docu.fileList = new ArrayList<>();
 
-			System.out.println("onboading para el costumer:" + name);
-			ResponseNuxeo response = service.newOnboarding(docu);
+            files.forEach(multipartFile -> {
+                try {
+                    docu.fileList.add(multipartToFile(multipartFile, multipartFile.getOriginalFilename()));
+                } catch (IOException e) {
+                    throw new RuntimeException(e);
+                }
+            });
 
-			logger.debug("Result response {} ",response);
+            System.out.println("onboading para el costumer:" + name);
+            ResponseNuxeo response = service.newOnboarding(docu);
 
-			return ResponseEntity.ok(docu);
+            logger.debug("Result response {} ", response);
 
-		} catch (Exception e) {
-			logger.error("Error Ocurred: ",e.getMessage());
-			ResponseEntity<?> responseError = new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
-			return responseError;
-		}
+            return ResponseEntity.ok(docu);
 
-	}
-	public static File multipartToFile(MultipartFile multipart, String fileName) throws IllegalStateException, IOException {
-		File convFile = new File(System.getProperty("java.io.tmpdir")+fileName);
-		multipart.transferTo(convFile);
-		return convFile;
-	}
+        } catch (Exception e) {
+            logger.error("Error Ocurred: ", e.getMessage());
+            ResponseEntity<?> responseError = new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
+            return responseError;
+        }
+    }
+
+    public static File multipartToFile(MultipartFile multipart, String fileName) throws IllegalStateException, IOException {
+        File convFile = new File(System.getProperty("java.io.tmpdir") + fileName);
+        multipart.transferTo(convFile);
+        return convFile;
+    }
 }
