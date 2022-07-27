@@ -6,7 +6,7 @@ logging:
     root: INFO
 nuxeo:
   api:
-    url: http://10.30.0.51:8080/api/v1/
+    url: http://10.30.0.51:8080/nuxeo/api/v1
     username: Administrator
     password: Administrator
 configuracion:

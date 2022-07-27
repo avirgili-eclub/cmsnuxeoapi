@@ -17,26 +17,14 @@
         <java.version>11</java.version>
         <spring-boot-admin.version>2.7.1</spring-boot-admin.version>
         <spring-cloud.version>2021.0.3</spring-cloud.version>
+        <main.basedir>${project.parent.relativePath}</main.basedir>
     </properties>
     <dependencies>
-
-        <dependency>
-            <groupId>org.springdoc</groupId>
-            <artifactId>springdoc-openapi-core</artifactId>
-            <version>1.1.49</version>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.github.classgraph</groupId>
-                    <artifactId>classgraph</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
         <!-- Swagger UI -->
         <dependency>
             <groupId>org.springdoc</groupId>
             <artifactId>springdoc-openapi-ui</artifactId>
-            <version>1.1.49</version>
+            <version>1.6.9</version>
         </dependency>
 
         <dependency>
@@ -49,7 +37,6 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-validation</artifactId>
         </dependency>
-
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-actuator</artifactId>
@@ -62,6 +49,7 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
 <!--        /*-->
 <!--        <dependency>-->
 <!--            <groupId>de.codecentric</groupId>-->
@@ -76,23 +64,19 @@
 <!--            <artifactId>spring-cloud-starter-sleuth</artifactId>-->
 <!--        </dependency>-->
 <!--/*-->
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-devtools</artifactId>
-            <scope>runtime</scope>
-            <optional>true</optional>
-        </dependency>
+<!--        <dependency>-->
+<!--            <groupId>org.springframework.boot</groupId>-->
+<!--            <artifactId>spring-boot-devtools</artifactId>-->
+<!--            <scope>runtime</scope>-->
+<!--            <optional>true</optional>-->
+<!--        </dependency>-->
+
         <dependency>
             <groupId>org.projectlombok</groupId>
             <artifactId>lombok</artifactId>
             <optional>true</optional>
-<!--            <exclusions>-->
-<!--                <exclusion>-->
-<!--                    <groupId>io.github.classgraph</groupId>-->
-<!--                    <artifactId>classgraph</artifactId>-->
-<!--                </exclusion>-->
-<!--            </exclusions>-->
         </dependency>
+
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
@@ -103,7 +87,41 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+
+        <dependency>
+            <groupId>commons-fileupload</groupId>
+            <artifactId>commons-fileupload</artifactId>
+            <version>1.4</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpmime</artifactId>
+            <version>4.3.1</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.nuxeo.client</groupId>
+            <artifactId>nuxeo-java-client</artifactId>
+            <version>3.11.0</version>
+            <scope>compile</scope>
+        </dependency>
+
     </dependencies>
+
+    <repositories>
+        <repository>
+            <id>local-maven-repo</id>
+            <url>file:///${project.basedir}/../local-maven-repo</url>
+        </repository>
+    </repositories>
+
+<!--    <repositories>-->
+<!--        <repository>-->
+<!--            <id>public-releases</id>-->
+<!--            <url>http://maven.nuxeo.com/nexus/content/repositories/public-releases/</url>-->
+<!--        </repository>-->
+<!--    </repositories>-->
 
     <dependencyManagement>
         <dependencies>
@@ -121,11 +139,6 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-<!--            <dependency>-->
-<!--                <groupId>io.github.classgraph</groupId>-->
-<!--                <artifactId>classgraph</artifactId>-->
-<!--                <version>4.8.105</version>-->
-<!--            </dependency>-->
         </dependencies>
     </dependencyManagement>
 

@@ -1,10 +1,14 @@
 package eclub.com.cmsnuxeo.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public class BatchDTO {
-    private boolean uploaded;
-    public int fileIdx;
+    public boolean uploaded;
+    public String fileIdx;
+    @JsonProperty("uploadedSize")
     private String size;
-    private String name;
+    public String uploadedSize;
+    public String name;
     private String uploadType;
     public String batchId;
 }
