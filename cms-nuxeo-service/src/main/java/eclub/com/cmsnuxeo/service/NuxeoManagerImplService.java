@@ -21,6 +21,9 @@ import org.springframework.web.client.RestTemplate;
 
 import eclub.com.cmsnuxeo.dto.*;
 
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 
 import java.io.*;
@@ -172,6 +175,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
         MultiValueMap<String, Object> map = new LinkedMultiValueMap<>();
         FileSystemResource fileToSend = new FileSystemResource(file);
+        String mimeType = Files.probeContentType(fileToSend.getFile().toPath());
         byte[] data = IOUtils.toByteArray(fileToSend.getInputStream());
         map.add("file", data);
 
@@ -230,7 +234,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         headers.set("X-File-Name", file.getName());
         headers.setContentLength(file.length());
         //headers.set("X-File-Type", fileBlob.getMimeType());
-        headers.set("X-File-Type", "image/jpeg");
+        headers.set("X-File-Type", mimeType);
         //endregion
 
         //region ayudamemoria
