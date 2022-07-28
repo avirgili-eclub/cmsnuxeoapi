@@ -1,7 +1,6 @@
 package eclub.com.cmsnuxeo.controller;
 
-import eclub.com.cmsnuxeo.dto.DocumentDTO;
-import eclub.com.cmsnuxeo.dto.ResponseNuxeo;
+import eclub.com.cmsnuxeo.dto.*;
 import eclub.com.cmsnuxeo.service.NuxeoManagerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,11 +48,20 @@ public class NuxeoRestController {
 
 
     @RequestMapping(value = "/newonboading", method = RequestMethod.POST, consumes = {MediaType.ALL_VALUE})
-    public @ResponseBody ResponseEntity<?> newOnboarding(@RequestParam @RequestBody String name,
+    public @ResponseBody ResponseEntity<?> newOnboarding(@RequestParam String costumer,
+                                                         @RequestParam String applicationNumber,
+                                                         @RequestParam int applicationType,
                                                          @RequestPart List<MultipartFile> files) {
         try {
+
+            ApplicationEclub applicationEclub = new ApplicationEclub();
+            applicationEclub.setApplicationNumber(applicationNumber);
+            applicationEclub.setApplicationType(ApplicationType.getApplicationType(applicationType));
+
             DocumentDTO docu = new DocumentDTO();
-            docu.name = name;
+            docu.setCostumer(costumer);
+            docu.setApplicationEclub(applicationEclub);
+
             docu.fileList = new ArrayList<>();
 
             files.forEach(multipartFile -> {
@@ -64,18 +72,35 @@ public class NuxeoRestController {
                 }
             });
 
-            System.out.println("onboading para el costumer:" + name);
             ResponseNuxeo response = service.newOnboarding(docu);
-
+            //docu.setPath(response.nuxeoDocument.path);
+            //docu.setUid(response.nuxeoDocument.uid);
             logger.debug("Result response {} ", response);
 
-            return ResponseEntity.ok(docu);
+            return ResponseEntity.ok(response);
+            //return ResponseEntity.ok(docu);
 
         } catch (Exception e) {
             logger.error("Error Ocurred: ", e.getMessage());
             ResponseEntity<?> responseError = new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
             return responseError;
         }
+    }
+
+    @RequestMapping(value = "/updatedocument", method = RequestMethod.PUT, consumes = {MediaType.ALL_VALUE})
+    public @ResponseBody ResponseEntity<ResponseNuxeo> updateDocument(@RequestParam String name,
+                                                                      @RequestParam String description,
+                                                                      @RequestParam String uid,
+                                                                      @RequestPart MultipartFile file) throws IOException {
+        DocumentDTO document = new DocumentDTO();
+        document.setCostumer(name);
+        document.setUid(uid);
+        document.setDescription(description);
+        document.setFile(multipartToFile(file, name));
+
+        ResponseNuxeo result = service.updateDocument(document);
+        return ResponseEntity.ok(result);
+
     }
 
     public static File multipartToFile(MultipartFile multipart, String fileName) throws IllegalStateException, IOException {

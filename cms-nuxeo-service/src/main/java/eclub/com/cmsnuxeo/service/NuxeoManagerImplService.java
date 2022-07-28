@@ -22,8 +22,6 @@ import org.springframework.web.client.RestTemplate;
 import eclub.com.cmsnuxeo.dto.*;
 
 import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.*;
 
 import java.io.*;
@@ -74,6 +72,8 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
                 logger.info(batchDocument.batchId);
 
                 NuxeoDocumentDTO nuxeoDocument = createDocumentWithBatchAndPath(batchDocument, path);
+                //TODO: Optimizar la creacion de versionado del documento.
+                createVersioningDocument(nuxeoDocument.uid, "");
                 responseNuxeo.nuxeoDocuments.add(nuxeoDocument);
 
             } catch (FileNotFoundException e) {
@@ -94,23 +94,22 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     @Override
     public ResponseNuxeo newOnboarding(DocumentDTO document) throws NuxeoManagerException, Exception {
 
-
         NuxeoDocumentDTO onboardingFolder = getDocumentByPath("Onboarding");
-        if (onboardingFolder == null){
+        if (onboardingFolder == null) {
             return null;
         }
 
         //check if directory exists first before create it to avoid duplicate.
-        NuxeoDocumentDTO clientFolder = getDocumentByPath(onboardingFolder.title + "/" + document.name);
+        NuxeoDocumentDTO clientFolder = getDocumentByPath(onboardingFolder.title + "/" + document.getCostumer());
 
-        if(clientFolder == null){
-            ResponseNuxeo result = createFolderWithParentId("14814521-2052-4c3b-824f-fc09b9331a4d", document.name);
+        if (clientFolder == null) {
+            ResponseNuxeo result = createFolderWithParentId(onboardingFolder.uid, document.getCostumer());
             clientFolder = result.nuxeoDocument;
             if (!result.success)
                 return result;
         }
 
-        ResponseNuxeo applicationFolder = createFolderWithParentId(clientFolder.uid, UUID.randomUUID().toString());
+        ResponseNuxeo applicationFolder = createFolderWithParentId(clientFolder.uid,  document.getApplicationEclub().getApplicationNumber());
         if (!applicationFolder.success)
             return applicationFolder;
 
@@ -121,6 +120,88 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         }
 
         return applicationFolder;
+    }
+
+    @Override
+    public ResponseNuxeo updateDocument(DocumentDTO document) {
+
+        ResponseNuxeo responseNuxeo = new ResponseNuxeo();
+        ResponseEntity<NuxeoDocumentDTO> responseEntity;
+
+        String batchId = null;
+        try {
+            batchId = createBatchId();
+
+            if (batchId == null || batchId.isEmpty()) {
+                responseNuxeo.success = false;
+                responseNuxeo.friendlyErrorMessage = "Error al crear el batch.";
+                return responseNuxeo;
+            }
+
+            BatchDTO batchDocument = uploadDocument(document.file, batchId, 0/*fileList.indexOf(file)*/);
+            batchDocument.name = document.file.getName();
+
+            boolean batchUploaded = verifiedBatch(batchDocument.batchId);
+
+            if (!batchUploaded) {
+                logger.info("Upload failed for file: " + batchDocument.name);
+                responseNuxeo.success = false;
+                responseNuxeo.friendlyErrorMessage = "Fallo la subida de archivo.";
+                return responseNuxeo;
+            }
+
+            logger.info(batchDocument.batchId);
+
+            JSONObject content = new JSONObject();
+            content.put("upload-batch", batchDocument.batchId);
+            content.put("upload-fileId", batchDocument.fileIdx);
+
+            JSONObject properties = new JSONObject();
+            properties.put("dc:title", document.getCostumer());
+            properties.put("file:content", content);
+            properties.put("dc:description", document.getDescription());
+            //TODO: Agregar actualizacion de attachments al documento.
+            //properties.put("files:files",files);
+
+            JSONObject body = new JSONObject();
+            body.put("entity-type", "document");
+            body.put("uid", document.getUid());
+            body.put("repository", "default");
+            body.put("properties", properties);
+
+
+            //TODO: improve method of "createHttpHeaders"
+            HttpHeaders headers = createHttpHeaders(user, password);
+            headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+            headers.set("Nuxeo-Transaction-Timeout", "3");
+            headers.set("X-NXproperties", "*");
+            headers.set("X-NXRepository", "default");
+            headers.set("X-Versioning-Option", "minor");
+
+            HttpEntity<?> entity = new HttpEntity<>(body, headers);
+
+            responseEntity = restTemplate.exchange(url + "/id/" + document.getUid(), HttpMethod.PUT, entity, NuxeoDocumentDTO.class);
+
+            responseNuxeo.nuxeoDocument = responseEntity.getBody();
+            responseNuxeo.success = true;
+
+            logger.info("Headers params {} ", headers);
+            logger.info("Body params {} ", body);
+
+        } catch (ParseException e) {
+            logger.info(e.getStackTrace().toString());
+            responseNuxeo.friendlyErrorMessage = e.getMessage();
+            responseNuxeo.success = false;
+            return responseNuxeo;
+        } catch (IOException e) {
+            logger.info(e.getStackTrace().toString());
+            responseNuxeo.friendlyErrorMessage = e.getMessage();
+            responseNuxeo.success = false;
+            return responseNuxeo;
+        } finally {
+            return responseNuxeo;
+        }
+
     }
 
     //region metodos de alcantarilla
@@ -301,10 +382,6 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         content.put("upload-batch", batch.batchId);
         content.put("upload-fileId", batch.fileIdx);
 
-//        Map<String, String> content = new HashMap<>();
-//        content.put("upload-batch", batch.batchId);
-//        content.put("upload-fileId", batch.fileIdx);
-
 //        JSONObject file = new JSONObject();
 //        file.put("upload-batch",batch.batchId);
 //        file.put("upload-fileId",batch.fileIdx);
@@ -314,7 +391,11 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
         JSONObject properties = new JSONObject();
         properties.put("dc:title", batch.name);
+//        properties.put("uid:major_version", "0");
+//        properties.put("uid:minor_version", "1");
         properties.put("file:content", content);
+
+        //TODO: agregar attachments.
 //        properties.put("files:files",files);
 
         JSONObject body = new JSONObject();
@@ -322,6 +403,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         body.put("type", "File");
         body.put("name", batch.name);
         body.put("repository", "default");
+//        body.put("isCheckedOut", "false");
         body.put("properties", properties);
 
         //TODO: improve method of "createHttpHeaders"
@@ -329,7 +411,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
         headers.setAccept(Arrays.asList(MediaType.ALL));
         headers.setContentLength(Long.parseLong(MAX_TRANSFER_SIZE));
-        headers.set("Nuxeo-Transaction-Timeout", "3");
+        headers.set("Nuxeo-Transaction-Timeout", "10");
         headers.set("X-NXproperties", "*");
         headers.set("X-NXRepository", "default");
 
@@ -343,7 +425,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return response.getBody();
     }
 
-    private String deleteDocumentById(String id) {
+    public ResponseNuxeo deleteDocumentById(String id) {
         return null;
     }
 
@@ -356,11 +438,11 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return headers;
     }
 
-    private NuxeoDocumentDTO getDocumentByPath(String path){
+    private NuxeoDocumentDTO getDocumentByPath(String path) {
 
         //TODO: improve method of "createHttpHeaders"
         HttpHeaders headers = createHttpHeaders(user, password);
-        headers.set("X-NXproperties","*");
+        headers.set("X-NXproperties", "*");
         HttpEntity<?> entity = new HttpEntity<>(headers);
 
         ResponseEntity<NuxeoDocumentDTO> response = null;
@@ -375,9 +457,37 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         logger.info("Headers params {} ", headers);
 
         if (response.getStatusCodeValue() == 200)
-           return response.getBody();
+            return response.getBody();
 
         return null;
+    }
+
+    //TODO: recrear metodo para pasarle body, reutilizar en updateDocument y createDocument.
+    private void createVersioningDocument(String id, String description){
+
+            JSONObject properties = new JSONObject();
+            properties.put("dc:description", description);
+
+            JSONObject body = new JSONObject();
+            body.put("entity-type", "document");
+            body.put("uid", id);
+            body.put("repository", "default");
+            body.put("properties", properties);
+            
+            //TODO: improve method of "createHttpHeaders"
+            HttpHeaders headers = createHttpHeaders(user, password);
+            headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+            headers.set("Nuxeo-Transaction-Timeout", "3");
+            headers.set("X-NXproperties", "*");
+            headers.set("X-NXRepository", "default");
+            headers.set("X-Versioning-Option", "minor");
+
+            HttpEntity<?> entity = new HttpEntity<>(body, headers);
+            ResponseEntity<String> responseEntity = restTemplate.exchange(url + "/id/" + id, HttpMethod.PUT, entity, String.class);
+            logger.info("Headers params {} ", headers);
+            logger.info("Body params {} ", body);
+            logger.info("Status code {} ",responseEntity.getStatusCode());
+
     }
 
     //endregion
