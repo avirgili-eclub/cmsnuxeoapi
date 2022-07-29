@@ -92,13 +92,12 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     }
 
     @Override
-    public ResponseNuxeo newOnboarding(DocumentDTO document) throws NuxeoManagerException, Exception {
+    public ResponseNuxeo newApplication(DocumentDTO document, ApplicationType type) throws NuxeoManagerException, Exception {
 
-        NuxeoDocumentDTO onboardingFolder = getDocumentByPath("Onboarding");
+        NuxeoDocumentDTO onboardingFolder = getDocumentByPath(type.name());
         if (onboardingFolder == null) {
             return null;
         }
-
         //check if directory exists first before create it to avoid duplicate.
         NuxeoDocumentDTO clientFolder = getDocumentByPath(onboardingFolder.title + "/" + document.getCostumer());
 
@@ -438,7 +437,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return headers;
     }
 
-    private NuxeoDocumentDTO getDocumentByPath(String path) {
+    private NuxeoDocumentDTO getDocumentByPath(String path) throws NuxeoManagerException {
 
         //TODO: improve method of "createHttpHeaders"
         HttpHeaders headers = createHttpHeaders(user, password);
@@ -449,10 +448,8 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         try {
             response = restTemplate.exchange(url + "/path/default-domain/workspaces/EClub/" + path, HttpMethod.GET, entity,
                     NuxeoDocumentDTO.class);
-//            response = restTemplate.exchange(url + "/path/default-domain/workspaces/EClub/Onboarding/" + name, HttpMethod.GET, entity,
-//                    NuxeoDocumentDTO.class);
         } catch (RestClientException e) {
-            return null;
+            throw new NuxeoManagerException(e.getMessage(), e.getCause());
         }
         logger.info("Headers params {} ", headers);
 

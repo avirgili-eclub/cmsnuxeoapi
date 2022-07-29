@@ -46,12 +46,12 @@ public class NuxeoRestController {
         return ResponseEntity.ok(map);
     }
 
-
-    @RequestMapping(value = "/newonboading", method = RequestMethod.POST, consumes = {MediaType.ALL_VALUE})
-    public @ResponseBody ResponseEntity<?> newOnboarding(@RequestParam String costumer,
-                                                         @RequestParam String applicationNumber,
-                                                         @RequestParam int applicationType,
-                                                         @RequestPart List<MultipartFile> files) {
+    @RequestMapping(value={"/onboarding/new", "/onboarding/approve"}, method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE,
+            MediaType.MULTIPART_FORM_DATA_VALUE})
+    public @ResponseBody ResponseEntity<?> newApplication(@RequestParam String costumer,
+                                                          @RequestParam String applicationNumber,
+                                                          @RequestParam int applicationType,
+                                                          @RequestPart List<MultipartFile> files) {
         try {
 
             ApplicationEclub applicationEclub = new ApplicationEclub();
@@ -68,28 +68,25 @@ public class NuxeoRestController {
                 try {
                     docu.fileList.add(multipartToFile(multipartFile, multipartFile.getOriginalFilename()));
                 } catch (IOException e) {
+                    logger.error(e.getMessage());
                     throw new RuntimeException(e);
                 }
             });
 
-            ResponseNuxeo response = service.newOnboarding(docu);
-            //docu.setPath(response.nuxeoDocument.path);
-            //docu.setUid(response.nuxeoDocument.uid);
+            ResponseNuxeo response = service.newApplication(docu, ApplicationType.getApplicationType(applicationType));
             logger.debug("Result response {} ", response);
-
             return ResponseEntity.ok(response);
-            //return ResponseEntity.ok(docu);
 
         } catch (Exception e) {
-            logger.error("Error Ocurred: ", e.getMessage());
-            ResponseEntity<?> responseError = new ResponseEntity<>(e.getMessage(), HttpStatus.BAD_REQUEST);
-            return responseError;
+            logger.error("Error Occurred: ", e.getMessage());
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.I_AM_A_TEAPOT);
         }
     }
 
-    @RequestMapping(value = "/updatedocument", method = RequestMethod.PUT, consumes = {MediaType.ALL_VALUE})
-    public @ResponseBody ResponseEntity<ResponseNuxeo> updateDocument(@RequestParam String name,
-                                                                      @RequestParam String description,
+    @RequestMapping(value = "/update/document", method = RequestMethod.PUT, consumes = {MediaType.APPLICATION_JSON_VALUE,
+            MediaType.MULTIPART_FORM_DATA_VALUE})
+    public @ResponseBody ResponseEntity<ResponseNuxeo> updateDocument(@RequestParam(required = false) String name,
+                                                                      @RequestParam(required = false) String description,
                                                                       @RequestParam String uid,
                                                                       @RequestPart MultipartFile file) throws IOException {
         DocumentDTO document = new DocumentDTO();
@@ -102,6 +99,7 @@ public class NuxeoRestController {
         return ResponseEntity.ok(result);
 
     }
+
 
     public static File multipartToFile(MultipartFile multipart, String fileName) throws IllegalStateException, IOException {
         File convFile = new File(System.getProperty("java.io.tmpdir") + fileName);
