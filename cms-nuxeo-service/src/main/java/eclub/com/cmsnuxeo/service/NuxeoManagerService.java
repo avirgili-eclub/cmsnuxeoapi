@@ -2,6 +2,7 @@ package eclub.com.cmsnuxeo.service;
 
 import eclub.com.cmsnuxeo.dto.ApplicationType;
 import eclub.com.cmsnuxeo.dto.DocumentDTO;
+import eclub.com.cmsnuxeo.dto.NuxeoDocumentDTO;
 import eclub.com.cmsnuxeo.dto.ResponseNuxeo;
 import eclub.com.cmsnuxeo.exception.NuxeoManagerException;
 
@@ -15,4 +16,5 @@ public interface NuxeoManagerService {
     ResponseNuxeo newApplication(DocumentDTO document, ApplicationType type) throws NuxeoManagerException, Exception;
     ResponseNuxeo updateDocument(DocumentDTO document);
     ResponseNuxeo deleteDocumentById(String id);
+    NuxeoDocumentDTO getDocumentById(String id) throws NuxeoManagerException;
 }

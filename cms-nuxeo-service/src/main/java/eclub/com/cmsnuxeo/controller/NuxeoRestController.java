@@ -1,6 +1,7 @@
 package eclub.com.cmsnuxeo.controller;
 
 import eclub.com.cmsnuxeo.dto.*;
+import eclub.com.cmsnuxeo.exception.NuxeoManagerException;
 import eclub.com.cmsnuxeo.service.NuxeoManagerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -88,16 +89,42 @@ public class NuxeoRestController {
     public @ResponseBody ResponseEntity<ResponseNuxeo> updateDocument(@RequestParam(required = false) String name,
                                                                       @RequestParam(required = false) String description,
                                                                       @RequestParam String uid,
-                                                                      @RequestPart MultipartFile file) throws IOException {
-        DocumentDTO document = new DocumentDTO();
-        document.setCostumer(name);
-        document.setUid(uid);
-        document.setDescription(description);
-        document.setFile(multipartToFile(file, name));
+                                                                      @RequestPart(required = false) MultipartFile file) throws IOException {
+        try {
+            NuxeoDocumentDTO nuxeoDocument = service.getDocumentById(uid);
 
-        ResponseNuxeo result = service.updateDocument(document);
-        return ResponseEntity.ok(result);
+            DocumentDTO document = new DocumentDTO();
+            document.setUid(uid);
 
+            if(name != null){
+                document.setCostumer(name);
+            }else{
+                document.setCostumer(nuxeoDocument.title);
+            }
+            if(description != null){
+                document.setDescription(description);
+            }else{
+                document.setDescription(nuxeoDocument.properties.dcDescription.toString());
+            }
+            if (file != null){
+                if(name != null){
+                    document.setFile(multipartToFile(file, name));
+                }else{
+                    document.setFile(multipartToFile(file, nuxeoDocument.title));
+                }
+            }
+            ResponseNuxeo result = service.updateDocument(document);
+
+            return ResponseEntity.ok(result);
+
+        } catch (NuxeoManagerException e) {
+            logger.error(e.getMessage());
+            logger.error(e.getStackTrace().toString());
+            ResponseNuxeo result = new ResponseNuxeo();
+            result.success = false;
+            result.friendlyErrorMessage = "Docummento no encontrado";
+            return ResponseEntity.ok(result);
+        }
     }
 
 

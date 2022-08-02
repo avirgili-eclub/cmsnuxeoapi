@@ -4,6 +4,7 @@ import eclub.com.cmsnuxeo.exception.NuxeoManagerException;
 
 
 import org.apache.commons.io.IOUtils;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
@@ -16,6 +17,7 @@ import org.springframework.http.converter.ByteArrayHttpMessageConverter;
 import org.springframework.stereotype.Service;
 import org.springframework.util.LinkedMultiValueMap;
 import org.springframework.util.MultiValueMap;
+import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 
@@ -128,36 +130,39 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         ResponseEntity<NuxeoDocumentDTO> responseEntity;
 
         String batchId = null;
+        JSONObject content = new JSONObject();
         try {
-            batchId = createBatchId();
+            if (document.file != null){
+                batchId = createBatchId();
 
-            if (batchId == null || batchId.isEmpty()) {
-                responseNuxeo.success = false;
-                responseNuxeo.friendlyErrorMessage = "Error al crear el batch.";
-                return responseNuxeo;
+                if (batchId == null || batchId.isEmpty()) {
+                    responseNuxeo.success = false;
+                    responseNuxeo.friendlyErrorMessage = "Error al crear el batch.";
+                    return responseNuxeo;
+                }
+
+                BatchDTO batchDocument = uploadDocument(document.file, batchId, 0/*fileList.indexOf(file)*/);
+                batchDocument.name = document.file.getName();
+
+                boolean batchUploaded = verifiedBatch(batchDocument.batchId);
+
+                if (!batchUploaded) {
+                    logger.info("Upload failed for file: " + batchDocument.name);
+                    responseNuxeo.success = false;
+                    responseNuxeo.friendlyErrorMessage = "Fallo la subida de archivo.";
+                    return responseNuxeo;
+                }
+
+                logger.info(batchDocument.batchId);
+
+                content.put("upload-batch", batchDocument.batchId);
+                content.put("upload-fileId", batchDocument.fileIdx);
             }
-
-            BatchDTO batchDocument = uploadDocument(document.file, batchId, 0/*fileList.indexOf(file)*/);
-            batchDocument.name = document.file.getName();
-
-            boolean batchUploaded = verifiedBatch(batchDocument.batchId);
-
-            if (!batchUploaded) {
-                logger.info("Upload failed for file: " + batchDocument.name);
-                responseNuxeo.success = false;
-                responseNuxeo.friendlyErrorMessage = "Fallo la subida de archivo.";
-                return responseNuxeo;
-            }
-
-            logger.info(batchDocument.batchId);
-
-            JSONObject content = new JSONObject();
-            content.put("upload-batch", batchDocument.batchId);
-            content.put("upload-fileId", batchDocument.fileIdx);
 
             JSONObject properties = new JSONObject();
             properties.put("dc:title", document.getCostumer());
-            properties.put("file:content", content);
+            if (document.file !=null)
+                properties.put("file:content", content);
             properties.put("dc:description", document.getDescription());
             //TODO: Agregar actualizacion de attachments al documento.
             //properties.put("files:files",files);
@@ -381,6 +386,12 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         content.put("upload-batch", batch.batchId);
         content.put("upload-fileId", batch.fileIdx);
 
+        JSONArray tags = new JSONArray();
+        tags.add(0,"");
+
+        JSONObject tagg = new JSONObject();
+        tagg.put("","");
+
 //        JSONObject file = new JSONObject();
 //        file.put("upload-batch",batch.batchId);
 //        file.put("upload-fileId",batch.fileIdx);
@@ -428,6 +439,32 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return null;
     }
 
+    @Override
+    public NuxeoDocumentDTO getDocumentById(String id) throws NuxeoManagerException {
+        //TODO: improve method of "createHttpHeaders"
+        HttpHeaders headers = createHttpHeaders(user, password);
+        headers.set("X-NXproperties", "*");
+        HttpEntity<?> entity = new HttpEntity<>(headers);
+
+        ResponseEntity<NuxeoDocumentDTO> response = null;
+        try {
+            response = restTemplate.exchange(url + "/id/" + id, HttpMethod.GET, entity,
+                    NuxeoDocumentDTO.class);
+
+        } catch (RestClientException e) {
+            if (((HttpClientErrorException.NotFound) e).getStatusCode() == HttpStatus.NOT_FOUND){
+                return null;
+            }
+            throw new NuxeoManagerException(e.getMessage(), e.getCause());
+        }
+        logger.info("Headers params {} ", headers);
+
+        if (response.getStatusCodeValue() == 200)
+            return response.getBody();
+
+        return null;
+    }
+
     private HttpHeaders createHttpHeaders(String user, String password) {
         String notEncoded = user + ":" + password;
         String encodedAuth = Base64.getEncoder().encodeToString(notEncoded.getBytes());
@@ -448,7 +485,11 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         try {
             response = restTemplate.exchange(url + "/path/default-domain/workspaces/EClub/" + path, HttpMethod.GET, entity,
                     NuxeoDocumentDTO.class);
+
         } catch (RestClientException e) {
+            if (((HttpClientErrorException.NotFound) e).getStatusCode() == HttpStatus.NOT_FOUND){
+                return null;
+            }
             throw new NuxeoManagerException(e.getMessage(), e.getCause());
         }
         logger.info("Headers params {} ", headers);
