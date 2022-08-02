@@ -48,10 +48,10 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
 
     @Override
-    public ResponseNuxeo createDocument(List<File> fileList, String path) throws NuxeoManagerException, ParseException {
+    public ResponseNuxeo createDocument(DocumentDTO document, String path) throws NuxeoManagerException, ParseException {
         ResponseNuxeo responseNuxeo = new ResponseNuxeo();
         responseNuxeo.nuxeoDocuments = new ArrayList<>();
-        for (File file : fileList) {
+        for (File file : document.fileList) {
             try {
                 String batchId = createBatchId();
 
@@ -73,13 +73,11 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
                 }
                 logger.info(batchDocument.batchId);
 
-                NuxeoDocumentDTO nuxeoDocument = createDocumentWithBatchAndPath(batchDocument, path);
+                NuxeoDocumentDTO nuxeoDocument = createNuxeoDocumentWithPath(batchDocument, path, document.getTags());
                 //TODO: Optimizar la creacion de versionado del documento.
                 createVersioningDocument(nuxeoDocument.uid, "");
                 responseNuxeo.nuxeoDocuments.add(nuxeoDocument);
 
-            } catch (FileNotFoundException e) {
-                throw new RuntimeException(e);
             } catch (IOException e) {
                 throw new RuntimeException(e);
             }
@@ -114,7 +112,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         if (!applicationFolder.success)
             return applicationFolder;
 
-        ResponseNuxeo result = createDocument(document.fileList, applicationFolder.nuxeoDocument.path);
+        ResponseNuxeo result = createDocument(document, applicationFolder.nuxeoDocument.path);
 
         if (!result.success) {
             deleteDocumentById(applicationFolder.nuxeoDocument.uid);
@@ -176,7 +174,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
             //TODO: improve method of "createHttpHeaders"
             HttpHeaders headers = createHttpHeaders(user, password);
-            headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+            headers.setAccept(List.of(MediaType.APPLICATION_JSON));
             headers.set("Nuxeo-Transaction-Timeout", "3");
             headers.set("X-NXproperties", "*");
             headers.set("X-NXRepository", "default");
@@ -192,20 +190,14 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             logger.info("Headers params {} ", headers);
             logger.info("Body params {} ", body);
 
-        } catch (ParseException e) {
-            logger.info(e.getStackTrace().toString());
+            return responseNuxeo;
+
+        } catch (ParseException | IOException e) {
+            logger.info(e.getMessage());
             responseNuxeo.friendlyErrorMessage = e.getMessage();
             responseNuxeo.success = false;
-            return responseNuxeo;
-        } catch (IOException e) {
-            logger.info(e.getStackTrace().toString());
-            responseNuxeo.friendlyErrorMessage = e.getMessage();
-            responseNuxeo.success = false;
-            return responseNuxeo;
-        } finally {
             return responseNuxeo;
         }
-
     }
 
     //region metodos de alcantarilla
@@ -380,18 +372,21 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
     }
 
-    private NuxeoDocumentDTO createDocumentWithBatchAndPath(BatchDTO batch, String path) {
+    private NuxeoDocumentDTO createNuxeoDocumentWithPath(BatchDTO batch, String path, List<String> tags) {
 
         JSONObject content = new JSONObject();
         content.put("upload-batch", batch.batchId);
         content.put("upload-fileId", batch.fileIdx);
 
-        JSONArray tags = new JSONArray();
-        tags.add(0,"");
+        JSONArray jsonArrayTags = new JSONArray();
+        tags.forEach(value -> {
+            JSONObject tag = new JSONObject();
+            tag.put("label", value.toLowerCase());
+            //TODO: valor traer de archivo .env
+            tag.put("username", "devnull@nuxeo.com");
 
-        JSONObject tagg = new JSONObject();
-        tagg.put("","");
-
+            jsonArrayTags.add(tag);
+        });
 //        JSONObject file = new JSONObject();
 //        file.put("upload-batch",batch.batchId);
 //        file.put("upload-fileId",batch.fileIdx);
@@ -401,9 +396,8 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
         JSONObject properties = new JSONObject();
         properties.put("dc:title", batch.name);
-//        properties.put("uid:major_version", "0");
-//        properties.put("uid:minor_version", "1");
         properties.put("file:content", content);
+        properties.put("nxtag:tags",jsonArrayTags);
 
         //TODO: agregar attachments.
 //        properties.put("files:files",files);

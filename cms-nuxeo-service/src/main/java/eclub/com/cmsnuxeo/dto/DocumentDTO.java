@@ -7,11 +7,12 @@ public class DocumentDTO {
     private String uid;
     private String costumer;
     private String description;
+    private List<String> tags;
     public File file;
     public List<File> fileList;
 
     public String path;
-//    private String applicationNumber;
+
     private ApplicationEclub applicationEclub;
 
     public String getUid() {
@@ -45,15 +46,12 @@ public class DocumentDTO {
     public void setFile(File file) {
         this.file = file;
     }
-
-//    public String getApplicationNumber() {
-//        return applicationNumber;
-//    }
-//
-//    public void setApplicationNumber(String applicationNumber) {
-//        this.applicationNumber = applicationNumber;
-//    }
-
+    public List<String> getTags() {
+        return tags;
+    }
+    public void setTags(List<String> tags) {
+        this.tags = tags;
+    }
     public ApplicationEclub getApplicationEclub() {
         return applicationEclub;
     }

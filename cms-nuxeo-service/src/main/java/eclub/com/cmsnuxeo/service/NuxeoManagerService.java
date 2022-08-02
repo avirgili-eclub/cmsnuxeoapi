@@ -12,7 +12,7 @@ import java.util.List;
 public interface NuxeoManagerService {
 
     //TODO: sacar este enpoint y poner privado en la implementacion.
-    ResponseNuxeo createDocument(List<File> fileList, String path) throws NuxeoManagerException, Exception;
+    ResponseNuxeo createDocument(DocumentDTO document, String path) throws NuxeoManagerException, Exception;
     ResponseNuxeo newApplication(DocumentDTO document, ApplicationType type) throws NuxeoManagerException, Exception;
     ResponseNuxeo updateDocument(DocumentDTO document);
     ResponseNuxeo deleteDocumentById(String id);

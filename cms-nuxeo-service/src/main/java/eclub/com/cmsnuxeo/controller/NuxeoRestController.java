@@ -52,29 +52,37 @@ public class NuxeoRestController {
     public @ResponseBody ResponseEntity<?> newApplication(@RequestParam String costumer,
                                                           @RequestParam String applicationNumber,
                                                           @RequestParam int applicationType,
-                                                          @RequestPart List<MultipartFile> files) {
+                                                          @RequestPart List<MultipartFile> files,
+                                                          @RequestParam(required = false) List<String> tags) {
         try {
 
             ApplicationEclub applicationEclub = new ApplicationEclub();
             applicationEclub.setApplicationNumber(applicationNumber);
             applicationEclub.setApplicationType(ApplicationType.getApplicationType(applicationType));
 
-            DocumentDTO docu = new DocumentDTO();
-            docu.setCostumer(costumer);
-            docu.setApplicationEclub(applicationEclub);
+            DocumentDTO document = new DocumentDTO();
+            document.setCostumer(costumer);
+            document.setApplicationEclub(applicationEclub);
 
-            docu.fileList = new ArrayList<>();
+            document.fileList = new ArrayList<>();
+            if(tags == null){
+                document.setTags(new ArrayList<>());
+            }else{
+                document.setTags(new ArrayList<>(tags));
+            }
+            document.getTags().add(document.getCostumer());
+            document.getTags().add(applicationEclub.getApplicationType().name());
 
             files.forEach(multipartFile -> {
                 try {
-                    docu.fileList.add(multipartToFile(multipartFile, multipartFile.getOriginalFilename()));
+                    document.fileList.add(multipartToFile(multipartFile, multipartFile.getOriginalFilename()));
                 } catch (IOException e) {
                     logger.error(e.getMessage());
                     throw new RuntimeException(e);
                 }
             });
 
-            ResponseNuxeo response = service.newApplication(docu, ApplicationType.getApplicationType(applicationType));
+            ResponseNuxeo response = service.newApplication(document, ApplicationType.getApplicationType(applicationType));
             logger.debug("Result response {} ", response);
             return ResponseEntity.ok(response);
 
