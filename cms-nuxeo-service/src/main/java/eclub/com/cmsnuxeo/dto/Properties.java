@@ -60,6 +60,15 @@ public class Properties {
     public Object dcPublisher;
     @JsonProperty("relatedtext:relatedtextresources")
     public ArrayList<Object> relatedtextRelatedtextresources;
+    //    @JsonProperty("nxtag:tags")
+//    public ArrayList<Object> nxtagTags;
+    ArrayList<NxtagTag> nxtagTags;
     @JsonProperty("nxtag:tags")
-    public ArrayList<Object> nxtagTags;
+    public ArrayList<NxtagTag> getNxtagTags() {
+        return this.nxtagTags;
+    }
+    public void setNxtagTags(ArrayList<NxtagTag> nxtagTags) {
+        this.nxtagTags = nxtagTags;
+    }
+
 }

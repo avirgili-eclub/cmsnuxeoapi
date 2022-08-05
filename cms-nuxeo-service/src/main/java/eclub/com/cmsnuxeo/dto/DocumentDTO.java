@@ -1,8 +1,12 @@
 package eclub.com.cmsnuxeo.dto;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+
 import java.io.File;
 import java.util.List;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class DocumentDTO {
     private String uid;
     private String costumer;
@@ -13,6 +17,7 @@ public class DocumentDTO {
 
     public String path;
 
+    @JsonAlias("application_eclub")
     private ApplicationEclub applicationEclub;
 
     public String getUid() {

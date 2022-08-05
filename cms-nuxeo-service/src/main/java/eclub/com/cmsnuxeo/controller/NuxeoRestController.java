@@ -46,43 +46,13 @@ public class NuxeoRestController {
         map.put("config", config);
         return ResponseEntity.ok(map);
     }
-
     @RequestMapping(value={"/onboarding/new", "/onboarding/approve"}, method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE,
-            MediaType.MULTIPART_FORM_DATA_VALUE})
-    public @ResponseBody ResponseEntity<?> newApplication(@RequestParam String costumer,
-                                                          @RequestParam String applicationNumber,
-                                                          @RequestParam int applicationType,
-                                                          @RequestPart List<MultipartFile> files,
-                                                          @RequestParam(required = false) List<String> tags) {
+    MediaType.MULTIPART_FORM_DATA_VALUE})
+    public @ResponseBody ResponseEntity<?> newApplication(@RequestPart("document") String document,
+                                                          @RequestPart("files") List<MultipartFile> files) {
         try {
-
-            ApplicationEclub applicationEclub = new ApplicationEclub();
-            applicationEclub.setApplicationNumber(applicationNumber);
-            applicationEclub.setApplicationType(ApplicationType.getApplicationType(applicationType));
-
-            DocumentDTO document = new DocumentDTO();
-            document.setCostumer(costumer);
-            document.setApplicationEclub(applicationEclub);
-
-            document.fileList = new ArrayList<>();
-            if(tags == null){
-                document.setTags(new ArrayList<>());
-            }else{
-                document.setTags(new ArrayList<>(tags));
-            }
-            document.getTags().add(document.getCostumer());
-            document.getTags().add(applicationEclub.getApplicationType().name());
-
-            files.forEach(multipartFile -> {
-                try {
-                    document.fileList.add(multipartToFile(multipartFile, multipartFile.getOriginalFilename()));
-                } catch (IOException e) {
-                    logger.error(e.getMessage());
-                    throw new RuntimeException(e);
-                }
-            });
-
-            ResponseNuxeo response = service.newApplication(document, ApplicationType.getApplicationType(applicationType));
+            DocumentDTO documentDTO = service.convertDocumentJsonToDTO(document, files);
+            ResponseNuxeo response = service.newApplication(documentDTO);
             logger.debug("Result response {} ", response);
             return ResponseEntity.ok(response);
 
@@ -135,7 +105,22 @@ public class NuxeoRestController {
         }
     }
 
-
+    @RequestMapping(value={"/search/documentsByTag"}, method = RequestMethod.GET, consumes = {MediaType.APPLICATION_JSON_VALUE,
+            MediaType.MULTIPART_FORM_DATA_VALUE})
+    public @ResponseBody ResponseEntity<?> getDocumentByTag(@RequestParam List<String> tags) {
+        try {
+            if (tags.size() >= 1){
+                ResponseNuxeo response = service.getDocumentsByTag(tags);
+                logger.debug("Result response {} ", response);
+                return ResponseEntity.ok(response);
+            }else{
+                return  ResponseEntity.ok(null);
+            }
+        } catch (Exception e) {
+            logger.error("Error Occurred: ", e.getMessage());
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.I_AM_A_TEAPOT);
+        }
+    }
     public static File multipartToFile(MultipartFile multipart, String fileName) throws IllegalStateException, IOException {
         File convFile = new File(System.getProperty("java.io.tmpdir") + fileName);
         multipart.transferTo(convFile);

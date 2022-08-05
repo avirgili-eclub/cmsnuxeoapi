@@ -11,3 +11,4 @@ public enum ApplicationType {
         return values[i - 1];
     }
 }
+

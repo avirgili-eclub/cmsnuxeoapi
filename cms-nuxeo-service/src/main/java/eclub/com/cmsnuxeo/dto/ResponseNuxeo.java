@@ -11,12 +11,8 @@ public class ResponseNuxeo {
     public boolean success;
     public NuxeoDocumentDTO nuxeoDocument;
     public List<NuxeoDocumentDTO> nuxeoDocuments;
+    public SearchDTO searchDTO;
     public String friendlyErrorMessage;
-
-    public boolean isSuccess() {
-        return success;
-    }
-
     public void setSuccess(boolean success) {
         this.success = success;
     }
