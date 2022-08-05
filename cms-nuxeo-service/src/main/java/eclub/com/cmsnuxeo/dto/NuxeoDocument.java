@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
 import java.util.Date;
-public class NuxeoDocumentDTO {
+public class NuxeoDocument {
     @JsonProperty("entity-type")
     public String entityType;
     public String repository;

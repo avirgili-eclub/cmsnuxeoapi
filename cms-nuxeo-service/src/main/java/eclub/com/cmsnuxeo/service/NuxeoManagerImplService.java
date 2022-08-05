@@ -30,6 +30,7 @@ import java.nio.file.Files;
 import java.util.*;
 
 import java.io.*;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -76,7 +77,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
                 }
                 logger.info(batchDocument.batchId);
 
-                NuxeoDocumentDTO nuxeoDocument = createNuxeoDocumentWithPath(batchDocument, path, document.getTags());
+                NuxeoDocument nuxeoDocument = createNuxeoDocumentWithPath(batchDocument, path, document.getTags());
                 //TODO: Optimizar la creacion de versionado del documento.
                 createVersioningDocument(nuxeoDocument.uid, "");
                 responseNuxeo.nuxeoDocuments.add(nuxeoDocument);
@@ -97,12 +98,15 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     @Override
     public ResponseNuxeo newApplication(DocumentDTO document) throws NuxeoManagerException, Exception {
         String applicationType = document.getApplicationEclub().getApplicationType().name();
-        NuxeoDocumentDTO applicationFolder = getDocumentByPath(applicationType);
+        //get the application folder (onboarding, expedient, etc).
+        //This folder must be created inside nuxeo by an admin
+        NuxeoDocument applicationFolder = getDocumentByPath(applicationType);
         if (applicationFolder == null) {
+            //TODO: return a response nuxeo with an error number.
             return null;
         }
-        //check if directory exists first before create it to avoid duplicate.
-        NuxeoDocumentDTO clientFolder = getDocumentByPath(applicationFolder.title + "/" + document.getCostumer());
+        //first check if directory exists before create it to avoid duplicate.
+        NuxeoDocument clientFolder = getDocumentByPath(applicationFolder.title + "/" + document.getCostumer());
 
         if (clientFolder == null) {
             ResponseNuxeo result = createFolderWithParentId(applicationFolder.uid, document.getCostumer());
@@ -110,15 +114,16 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             if (!result.success)
                 return result;
         }
-
+        //create child folder inside parent (numberForm folder)
         ResponseNuxeo formFolder = createFolderWithParentId(clientFolder.uid, document.getApplicationEclub().getApplicationNumber());
         if (!formFolder.success)
             return formFolder;
 
         ResponseNuxeo result = createDocument(document, formFolder.nuxeoDocument.path);
 
+        //TODO: test this scenario
         if (!result.success) {
-            deleteDocumentById(formFolder.nuxeoDocument.uid);
+            deleteDocumentByUid(formFolder.nuxeoDocument.uid);
         }
 
         return formFolder;
@@ -128,15 +133,15 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     public ResponseNuxeo updateDocument(DocumentDTO document) {
 
         ResponseNuxeo responseNuxeo = new ResponseNuxeo();
-        ResponseEntity<NuxeoDocumentDTO> responseEntity;
+        ResponseEntity<NuxeoDocument> responseEntity;
         JSONObject content = new JSONObject();
         try {
             if (document.file != null) {
                 String batchId = createBatchId();
-
                 if (batchId == null || batchId.isEmpty()) {
                     responseNuxeo.success = false;
                     responseNuxeo.friendlyErrorMessage = "Error al crear el batch.";
+                    logger.info(responseNuxeo.friendlyErrorMessage);
                     return responseNuxeo;
                 }
 
@@ -172,7 +177,6 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             body.put("repository", "default");
             body.put("properties", properties);
 
-
             //TODO: improve method of "createHttpHeaders"
             HttpHeaders headers = createHttpHeaders(user, password);
             headers.setAccept(List.of(MediaType.APPLICATION_JSON));
@@ -183,7 +187,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
             HttpEntity<?> entity = new HttpEntity<>(body, headers);
 
-            responseEntity = restTemplate.exchange(url + "/id/" + document.getUid(), HttpMethod.PUT, entity, NuxeoDocumentDTO.class);
+            responseEntity = restTemplate.exchange(url + "/id/" + document.getUid(), HttpMethod.PUT, entity, NuxeoDocument.class);
 
             responseNuxeo.nuxeoDocument = responseEntity.getBody();
             responseNuxeo.success = true;
@@ -194,8 +198,9 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             return responseNuxeo;
 
         } catch (ParseException | IOException e) {
-            logger.info(e.getMessage());
-            responseNuxeo.friendlyErrorMessage = e.getMessage();
+            logger.error("Message: ", e.getMessage());
+            logger.error("Cause: ", e.getCause());
+            responseNuxeo.friendlyErrorMessage = "Ocurrio un error al intentar actualizar el documento.";
             responseNuxeo.success = false;
             return responseNuxeo;
         }
@@ -205,7 +210,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     private ResponseNuxeo createFolderWithParentId(String id, String name) {
         ResponseNuxeo response = new ResponseNuxeo();
 
-        ResponseEntity<NuxeoDocumentDTO> responseEntity;
+        ResponseEntity<NuxeoDocument> responseEntity;
 
         JSONObject jsonBody = new JSONObject();
         jsonBody.put("entity-type", "document");
@@ -222,7 +227,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
         HttpEntity<?> entity = new HttpEntity<>(jsonBody, headers);
 
-        responseEntity = restTemplate.exchange(url + "/id/" + id, HttpMethod.POST, entity, NuxeoDocumentDTO.class);
+        responseEntity = restTemplate.exchange(url + "/id/" + id, HttpMethod.POST, entity, NuxeoDocument.class);
 
         response.nuxeoDocument = responseEntity.getBody();
         response.success = true;
@@ -244,6 +249,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
         responseEntity = restTemplate.exchange(url + "/upload/", HttpMethod.POST, entity, BatchDTO.class);
 
+        //TODO: controlar nulo.
         return responseEntity.getBody().batchId;
     }
 
@@ -278,9 +284,13 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             responseEntity = restTemplate.postForEntity(url + "/upload/" + batchId + "/" + batchIdx, requestEntity,
                     BatchDTO.class);
         } catch (RestClientException ex) {
-
-            logger.info("Error occured duting posting the file to api gateway:"
-                    + ex.getMessage());
+            logger.error("Message: ", ex.getMessage());
+            logger.error("Cause: ", ex.getCause());
+            logger.error("StackTrace: ", Arrays.asList(ex.getStackTrace())
+                    .stream()
+                    .map(Objects::toString)
+                    .collect(Collectors.joining("\n")));
+            //TODO: remove throw an return a response nuxeo instead of batchDto.
             throw new RuntimeException(ex);
         }
         logger.info("Headers params {} ", headers);
@@ -306,7 +316,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
     }
 
-    private NuxeoDocumentDTO createNuxeoDocumentWithPath(BatchDTO batch, String path, List<String> tags) {
+    private NuxeoDocument createNuxeoDocumentWithPath(BatchDTO batch, String path, List<String> tags) {
 
         JSONObject content = new JSONObject();
         content.put("upload-batch", batch.batchId);
@@ -355,7 +365,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
         HttpEntity<?> entity = new HttpEntity<>(body, headers);
 
-        ResponseEntity<NuxeoDocumentDTO> response = restTemplate.exchange(url + "/path" + path, HttpMethod.POST, entity, NuxeoDocumentDTO.class);
+        ResponseEntity<NuxeoDocument> response = restTemplate.exchange(url + "/path" + path, HttpMethod.POST, entity, NuxeoDocument.class);
 
         logger.info("Headers params {} ", headers);
         logger.info("Body params {} ", body);
@@ -363,33 +373,42 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return response.getBody();
     }
 
-    public ResponseNuxeo deleteDocumentById(String id) {
+    //TODO: Implement deleteDocumentByUid
+    public ResponseNuxeo deleteDocumentByUid(String uid) {
         return null;
     }
 
     @Override
-    public NuxeoDocumentDTO getDocumentById(String id) throws NuxeoManagerException {
+    public NuxeoDocument getDocumentById(String id) throws NuxeoManagerException {
         //TODO: improve method of "createHttpHeaders"
         HttpHeaders headers = createHttpHeaders(user, password);
         headers.set("X-NXproperties", "*");
         HttpEntity<?> entity = new HttpEntity<>(headers);
 
-        ResponseEntity<NuxeoDocumentDTO> response = null;
+        ResponseEntity<NuxeoDocument> response = null;
         try {
             response = restTemplate.exchange(url + "/id/" + id, HttpMethod.GET, entity,
-                    NuxeoDocumentDTO.class);
+                    NuxeoDocument.class);
 
         } catch (RestClientException e) {
+            //Si el codigo devuelto es not_found se retorna null para crear el elemento, no se considera error.
             if (((HttpClientErrorException.NotFound) e).getStatusCode() == HttpStatus.NOT_FOUND) {
                 return null;
             }
+            logger.error("Message: ", e.getMessage());
+            logger.error("Cause: ", e.getCause());
+            logger.error("StackTrace: ", Arrays.asList(e.getStackTrace())
+                    .stream()
+                    .map(Objects::toString)
+                    .collect(Collectors.joining("\n")));
             throw new NuxeoManagerException(e.getMessage(), e.getCause());
         }
         logger.info("Headers params {} ", headers);
+        logger.info("Response: {}", response);
 
         if (response.getStatusCodeValue() == 200)
             return response.getBody();
-
+        //TODO: check this.
         return null;
     }
 
@@ -400,26 +419,27 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         headers.set("X-NXproperties", "*");
         HttpEntity<?> entity = new HttpEntity<>(headers);
 
-        ResponseEntity<SearchDTO> response = null;
+        ResponseEntity<SearchNuxeoDocument> response;
+        //Se elimina todos los espacios en blanco.
+        tags.replaceAll(tag -> tag.replaceAll("\\s",""));
 
         if (tags.size() > 1){
-            url += "/search/lang/NXQL/execute?query=SELECT * FROM Document WHERE ecm:tag IN (";
-            tags.forEach(x -> {
-                url += x + ", ";
-            });
-            url = url.substring(0,url.length() -2);
-            url += ")" + " and ecm:isLatestVersion = 1";
-            response = restTemplate.exchange(url, HttpMethod.GET, entity,
-                    SearchDTO.class);
+            final String[] query = {url};
+            query[0] += "/search/lang/NXQL/execute?query=SELECT * FROM Document WHERE ecm:tag IN ( ";
+            tags.forEach(x -> query[0] += "'" + x + "'" + ", ");
+            query[0] = query[0].substring(0, query[0].length() -2);
+            query[0] += " )" + " and ecm:isLatestVersion = 1";
+            response = restTemplate.exchange(query[0], HttpMethod.GET, entity,
+                    SearchNuxeoDocument.class);
         }else {
             response = restTemplate.exchange(url + "/search/lang/NXQL/execute?query=SELECT * FROM Document WHERE ecm:tag = "+ tags.get(0) + " and ecm:isLatestVersion = 1", HttpMethod.GET, entity,
-                    SearchDTO.class);
+                    SearchNuxeoDocument.class);
         }
         logger.info("Headers params {} ", headers);
 
         ResponseNuxeo result = new ResponseNuxeo();
         result.success = true;
-        result.searchDTO = response.getBody();
+        result.searchNuxeoDocument = response.getBody();
 
         return result;
     }
@@ -455,17 +475,17 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return headers;
     }
 
-    private NuxeoDocumentDTO getDocumentByPath(String path) throws NuxeoManagerException {
+    private NuxeoDocument getDocumentByPath(String path) throws NuxeoManagerException {
 
         //TODO: improve method of "createHttpHeaders"
         HttpHeaders headers = createHttpHeaders(user, password);
         headers.set("X-NXproperties", "*");
         HttpEntity<?> entity = new HttpEntity<>(headers);
 
-        ResponseEntity<NuxeoDocumentDTO> response = null;
+        ResponseEntity<NuxeoDocument> response = null;
         try {
             response = restTemplate.exchange(url + "/path/default-domain/workspaces/EClub/" + path, HttpMethod.GET, entity,
-                    NuxeoDocumentDTO.class);
+                    NuxeoDocument.class);
 
         } catch (RestClientException e) {
             if (((HttpClientErrorException.NotFound) e).getStatusCode() == HttpStatus.NOT_FOUND) {

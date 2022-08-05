@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.ArrayList;
 
-public class SearchDTO {
+public class SearchNuxeoDocument {
     @JsonProperty("entity-type")
     public String entityType;
     public boolean isPaginable;
@@ -25,5 +25,5 @@ public class SearchDTO {
     public int totalSize;
     public int pageIndex;
     public int pageCount;
-    public ArrayList<NuxeoDocumentDTO> entries;
+    public ArrayList<NuxeoDocument> entries;
 }

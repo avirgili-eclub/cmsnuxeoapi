@@ -8,7 +8,7 @@ public class ApplicationEclub {
     private String applicationNumber;
     @JsonProperty("application_type")
     @Enumerated(EnumType.ORDINAL)
-    private ApplicationType applicationType;
+    private EApplicationType applicationType;
 
     public String getApplicationNumber() {
         return applicationNumber;
@@ -18,11 +18,11 @@ public class ApplicationEclub {
         this.applicationNumber = applicationNumber;
     }
 
-    public ApplicationType getApplicationType() {
+    public EApplicationType getApplicationType() {
         return applicationType;
     }
 
-    public void setApplicationType(ApplicationType applicationType) {
+    public void setApplicationType(EApplicationType applicationType) {
         this.applicationType = applicationType;
     }
 

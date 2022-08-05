@@ -9,9 +9,9 @@ public class ResponseNuxeo {
         this.setSuccess(true);
     }
     public boolean success;
-    public NuxeoDocumentDTO nuxeoDocument;
-    public List<NuxeoDocumentDTO> nuxeoDocuments;
-    public SearchDTO searchDTO;
+    public NuxeoDocument nuxeoDocument;
+    public List<NuxeoDocument> nuxeoDocuments;
+    public SearchNuxeoDocument searchNuxeoDocument;
     public String friendlyErrorMessage;
     public void setSuccess(boolean success) {
         this.success = success;

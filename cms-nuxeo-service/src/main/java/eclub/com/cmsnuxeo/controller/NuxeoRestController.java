@@ -15,11 +15,9 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-
 
 @RestController
 @RequestMapping("/api/v1/nuxeo")
@@ -37,7 +35,6 @@ public class NuxeoRestController {
 
     @Value("${configuracion.ambiente}")
     private String config;
-
 
     @GetMapping("/get-config")
     public ResponseEntity getConfig() {
@@ -69,7 +66,7 @@ public class NuxeoRestController {
                                                                       @RequestParam String uid,
                                                                       @RequestPart(required = false) MultipartFile file) throws IOException {
         try {
-            NuxeoDocumentDTO nuxeoDocument = service.getDocumentById(uid);
+            NuxeoDocument nuxeoDocument = service.getDocumentById(uid);
 
             DocumentDTO document = new DocumentDTO();
             document.setUid(uid);
@@ -112,9 +109,9 @@ public class NuxeoRestController {
             if (tags.size() >= 1){
                 ResponseNuxeo response = service.getDocumentsByTag(tags);
                 logger.debug("Result response {} ", response);
-                return ResponseEntity.ok(response);
+                return ResponseEntity.ok(response.searchNuxeoDocument);
             }else{
-                return  ResponseEntity.ok(null);
+                return  ResponseEntity.ok(new SearchNuxeoDocument());
             }
         } catch (Exception e) {
             logger.error("Error Occurred: ", e.getMessage());
