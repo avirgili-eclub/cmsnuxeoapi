@@ -1,9 +1,10 @@
 
-<center><a href="https://eclub.com.py/" target="blank"><img src="https://eclub.com.py/static/assets/imagen/eclub-logo.svg" width="320" alt="eClub Logo" /></a></center>
-# Content managment API for Nuxeo (CMS-API)
+<center><a href="https://eclub.com.py/" target="blank"><img src="https://eclub.com.py/wp-content/uploads/2022/05/eclub-logo-en-color.svg" width="320" alt="eClub Logo" /></a></center>
+
+# Content managment API for Nuxeo (CMS-Nuxeo-API)
 
 ## Descripción
-API Wrapper de Nuxeo(CMS) para manejar los documentos de los costumers.
+API Wrapper de Nuxeo para manejar los documentos de los costumers.
 
 ## Documentación
 Se implemento Swagger UI para ver los endpoints disponibles.
