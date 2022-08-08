@@ -1,3 +1,6 @@
+/**
+ * Esta clase es un servicio que implementa la interfaz NuxeoManagerService
+ */
 package eclub.com.cmsnuxeo.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -34,6 +37,9 @@ import java.util.stream.Collectors;
 
 
 @Service
+/**
+ * Esta clase es un servicio que implementa la interfaz NuxeoManagerService
+ */
 public class NuxeoManagerImplService implements NuxeoManagerService {
 
     @Autowired
@@ -51,12 +57,19 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     public static final String MAX_TRANSFER_SIZE = "4294967295";
 
 
-    @Override
-    public ResponseNuxeo createDocument(DocumentDTO document, String path) throws NuxeoManagerException, ParseException {
+    /**
+     * Crea un documento en Nuxeo.
+     *
+     * @param document El documento a crear.
+     * @param path La ruta donde se creará el documento.
+     * @return Un objeto ResponseNuxeo el cual contiene si fue success y el objeto/s creado/s.
+     */
+    private ResponseNuxeo createDocument(DocumentDTO document, String path) throws NuxeoManagerException, ParseException {
         ResponseNuxeo responseNuxeo = new ResponseNuxeo();
         responseNuxeo.nuxeoDocuments = new ArrayList<>();
         for (File file : document.fileList) {
             try {
+                //create batch to upload documents
                 String batchId = createBatchId();
 
                 if (batchId == null || batchId.isEmpty()) {
@@ -64,10 +77,11 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
                     responseNuxeo.friendlyErrorMessage = "Error al crear el batch.";
                     return responseNuxeo;
                 }
-
+                //upload document to the batch
                 BatchDTO batchDocument = uploadDocument(file, batchId, 0/*fileList.indexOf(file)*/);
                 batchDocument.name = file.getName();
 
+                //verified that the batch has created and with files
                 boolean batchUploaded = verifiedBatch(batchDocument.batchId);
                 if (!batchUploaded) {
                     logger.info("Upload failed for file: " + batchDocument.name);
@@ -76,9 +90,10 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
                     break;
                 }
                 logger.info(batchDocument.batchId);
-
+                //create nuxeo document with the file from the batch.
                 NuxeoDocument nuxeoDocument = createNuxeoDocumentWithPath(batchDocument, path, document.getTags());
                 //TODO: Optimizar la creacion de versionado del documento.
+                //make the nuxeo document to be versional.
                 createVersioningDocument(nuxeoDocument.uid, "");
                 responseNuxeo.nuxeoDocuments.add(nuxeoDocument);
 
@@ -90,11 +105,17 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             responseNuxeo.success = false;
             responseNuxeo.friendlyErrorMessage = "No se pudo crear el documento.";
         }
-
         return responseNuxeo;
-
     }
 
+    /**
+     * > Crear una carpeta dentro del espacio de trabajo de eclub
+     *  con el nombre de la appplication y segun el tipo de
+     *  application_eclub (Onboarding, expedient)
+     *
+     * @param document el documento a crear.
+     * @return Un objeto ResponseNuxeo.
+     */
     @Override
     public ResponseNuxeo newApplication(DocumentDTO document) throws NuxeoManagerException, Exception {
         String applicationType = document.getApplicationEclub().getApplicationType().name();
@@ -105,7 +126,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             //TODO: return a response nuxeo with an error number.
             return null;
         }
-        //first check if directory exists before create it to avoid duplicate.
+        //check if directory exists before create it to avoid duplicate.
         NuxeoDocument clientFolder = getDocumentByPath(applicationFolder.title + "/" + document.getCostumer());
 
         if (clientFolder == null) {
@@ -114,22 +135,22 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             if (!result.success)
                 return result;
         }
-        //create child folder inside parent (numberForm folder)
+        //create child folder inside clientFolder (application_club number folder)
         ResponseNuxeo formFolder = createFolderWithParentId(clientFolder.uid, document.getApplicationEclub().getApplicationNumber());
         if (!formFolder.success)
             return formFolder;
-
+        //create nuxeo documents inside folder.
         ResponseNuxeo result = createDocument(document, formFolder.nuxeoDocument.path);
 
-        //TODO: test this scenario
+        //TODO: check/think about this scenario
         if (!result.success) {
             deleteDocumentByUid(formFolder.nuxeoDocument.uid);
         }
-
         return formFolder;
     }
 
     @Override
+    // El código está actualizando un documento en Nuxeo.
     public ResponseNuxeo updateDocument(DocumentDTO document) {
 
         ResponseNuxeo responseNuxeo = new ResponseNuxeo();
@@ -168,7 +189,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             if (document.file != null)
                 properties.put("file:content", content);
             properties.put("dc:description", document.getDescription());
-            //TODO: Agregar actualizacion de attachments al documento.
+            //TODO: Agregar actualizacion de attachments al documento si los tuviese.
             //properties.put("files:files",files);
 
             JSONObject body = new JSONObject();
@@ -207,6 +228,13 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     }
 
     //region metodos de alcantarilla
+    /**
+     * Esta función crea una carpeta con una identificación principal y un nombre
+     *
+     * @param id El id de la carpeta principal.
+     * @param name El nombre de la carpeta que desea crear.
+     * @return Un objeto ResponseNuxeo.
+     */
     private ResponseNuxeo createFolderWithParentId(String id, String name) {
         ResponseNuxeo response = new ResponseNuxeo();
 
@@ -238,6 +266,11 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return response;
     }
 
+    /**
+     * Crea un ID de lote enviando una solicitud POST al servidor
+     *
+     * @return Un ID de lote
+     */
     private String createBatchId() throws ParseException {
 
         ResponseEntity<BatchDTO> responseEntity;
@@ -253,6 +286,14 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return responseEntity.getBody().batchId;
     }
 
+    /**
+     * Esta función carga un archivo en el servidor de Nuxeo
+     *
+     * @param file el archivo a subir
+     * @param batchId la identificación del lote que devolvió el método createBatch.
+     * @param batchIdx el índice del archivo en el lote.
+     * @return Un objeto BatchDTO.
+     */
     private BatchDTO uploadDocument(File file, String batchId, int batchIdx) throws IOException {
 
         ResponseEntity<BatchDTO> responseEntity;
@@ -298,6 +339,13 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return responseEntity.getBody();
     }
 
+    /**
+     * La función toma un ID de lote como parámetro y devuelve un valor booleano de si el batch
+     * se encuentra creado.
+     *
+     * @param batchId la identificación del lote que se devolvió de la llamada de carga
+     * @return La respuesta es una cadena.
+     */
     private boolean verifiedBatch(String batchId) {
         boolean success = false;
         //TODO: improve method of "createHttpHeaders"
@@ -316,8 +364,21 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
     }
 
+    /**
+     * Crea un documento en Nuxeo con la ruta recibida como parametro,
+     * las etiquetas y las propiedades dadas.
+     *
+     * @param batch El objeto de lote que contiene el ID de lote y el ID de archivo.
+     * @param path La ruta donde se cargará el archivo.
+     * @param tags Lista de etiquetas que se añadirán al documento.
+     * @return Un objeto NuxeoDocument.
+     */
     private NuxeoDocument createNuxeoDocumentWithPath(BatchDTO batch, String path, List<String> tags) {
 
+        if (tags.size() >= 1){
+            //Se elimina todos los espacios en blanco.
+            tags.replaceAll(tag -> tag.replaceAll("\\s",""));
+        }
         JSONObject content = new JSONObject();
         content.put("upload-batch", batch.batchId);
         content.put("upload-fileId", batch.fileIdx);
@@ -326,8 +387,8 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         tags.forEach(value -> {
             JSONObject tag = new JSONObject();
             tag.put("label", value.toLowerCase());
-            //TODO: valor traer de archivo .env
-            tag.put("username", "devnull@nuxeo.com");
+            //TODO: valor tomar de la sesion?
+            tag.put("username", "avirgili@eclub.com.py");
 
             jsonArrayTags.add(tag);
         });
@@ -351,7 +412,6 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         body.put("type", "File");
         body.put("name", batch.name);
         body.put("repository", "default");
-//        body.put("isCheckedOut", "false");
         body.put("properties", properties);
 
         //TODO: improve method of "createHttpHeaders"
@@ -379,6 +439,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     }
 
     @Override
+    // Obtener un documento por su id.
     public NuxeoDocument getDocumentById(String id) throws NuxeoManagerException {
         //TODO: improve method of "createHttpHeaders"
         HttpHeaders headers = createHttpHeaders(user, password);
@@ -413,6 +474,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     }
 
     @Override
+    // La funcion crea un query para obtener los documentos por una o varias etiquetas.
     public ResponseNuxeo getDocumentsByTag(List<String> tags) {
         //TODO: improve method of "createHttpHeaders"
         HttpHeaders headers = createHttpHeaders(user, password);
@@ -431,9 +493,11 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             query[0] += " )" + " and ecm:isLatestVersion = 1";
             response = restTemplate.exchange(query[0], HttpMethod.GET, entity,
                     SearchNuxeoDocument.class);
+            logger.info("body response: {}", response.getBody());
         }else {
             response = restTemplate.exchange(url + "/search/lang/NXQL/execute?query=SELECT * FROM Document WHERE ecm:tag = "+ tags.get(0) + " and ecm:isLatestVersion = 1", HttpMethod.GET, entity,
                     SearchNuxeoDocument.class);
+            logger.info("body response: {}", response.getBody());
         }
         logger.info("Headers params {} ", headers);
 
@@ -445,6 +509,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     }
 
     @Override
+    // Conversión de una cadena JSON en un objeto DocumentDTO.
     public DocumentDTO convertDocumentJsonToDTO(String document, List<MultipartFile> files) {
         try {
             DocumentDTO documentObjet;
@@ -466,6 +531,15 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         }
     }
 
+    /**
+     * Toma un nombre de usuario y una contraseña, los concatena con dos puntos, codifica la cadena resultante en Base64 y
+     * agrega el valor resultante al encabezado de Autorización.
+     *
+     * @param user El nombre de usuario del usuario que desea autenticar.
+     * @param password La contraseña para el usuario.
+     * @return Un objeto HttpHeaders con el tipo de contenido establecido en JSON y el encabezado de autorización
+     * establecido en Básico con el usuario y la contraseña codificados.
+     */
     private HttpHeaders createHttpHeaders(String user, String password) {
         String notEncoded = user + ":" + password;
         String encodedAuth = Base64.getEncoder().encodeToString(notEncoded.getBytes());
@@ -475,6 +549,12 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return headers;
     }
 
+    /**
+     * Toma una ruta como parámetro y devuelve un objeto NuxeoDocument
+     *
+     * @param path la ruta del documento que desea recuperar
+     * @return Un objeto NuxeoDocument
+     */
     private NuxeoDocument getDocumentByPath(String path) throws NuxeoManagerException {
 
         //TODO: improve method of "createHttpHeaders"
@@ -502,6 +582,13 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     }
 
     //TODO: recrear metodo para pasarle body, reutilizar en updateDocument y createDocument.
+    /**
+     * Esta función habilita la opcion de versionado de
+     * un documento de nuxeo con la identificación dada.
+     *
+     * @param id la identificación del documento
+     * @param description La descripción del documento.
+     */
     private void createVersioningDocument(String id, String description) {
 
         JSONObject properties = new JSONObject();
@@ -529,6 +616,13 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
     }
 
+    /**
+     * Toma un MultipartFile y lo convierte en un archivo
+     *
+     * @param multipart El objeto MultipartFile que desea convertir en un objeto de archivo.
+     * @param fileName El nombre del archivo a guardar.
+     * @return Un objeto de archivo.
+     */
     private static File multipartToFile(MultipartFile multipart, String fileName) throws IllegalStateException, IOException {
         File convFile = new File(System.getProperty("java.io.tmpdir") + fileName);
         multipart.transferTo(convFile);

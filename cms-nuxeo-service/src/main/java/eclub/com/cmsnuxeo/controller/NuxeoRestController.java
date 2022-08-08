@@ -43,6 +43,14 @@ public class NuxeoRestController {
         map.put("config", config);
         return ResponseEntity.ok(map);
     }
+    /**
+     * La función toma una cadena JSON y una lista de archivos, convierte la cadena JSON en un objeto DocumentDTO y luego
+     * llama a la función newApplication en la capa de servicio para crear y/o aprobar un documento.
+     *
+     * @param document Esta es la cadena JSON que contiene los metadatos del documento.
+     * @param files Esta es una lista de los archivos que se cargan.
+     * @return Entidad de respuesta<ResponseNuxeo>
+     */
     @RequestMapping(value={"/onboarding/new", "/onboarding/approve"}, method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE,
     MediaType.MULTIPART_FORM_DATA_VALUE})
     public @ResponseBody ResponseEntity<?> newApplication(@RequestPart("document") String document,
@@ -59,6 +67,15 @@ public class NuxeoRestController {
         }
     }
 
+    /**
+     * Actualiza un documento en Nuxeo.
+     *
+     * @param name El nombre del documento.
+     * @param description La descripción del documento.
+     * @param uid El identificador único del documento.
+     * @param file El archivo que se va a cargar.
+     * @return Entidad de respuesta<ResponseNuxeo>
+     */
     @RequestMapping(value = "/update/document", method = RequestMethod.PUT, consumes = {MediaType.APPLICATION_JSON_VALUE,
             MediaType.MULTIPART_FORM_DATA_VALUE})
     public @ResponseBody ResponseEntity<ResponseNuxeo> updateDocument(@RequestParam(required = false) String name,
@@ -66,6 +83,7 @@ public class NuxeoRestController {
                                                                       @RequestParam String uid,
                                                                       @RequestPart(required = false) MultipartFile file) throws IOException {
         try {
+            //TODO: quitar logica del controller y pasarla en el serivio.
             NuxeoDocument nuxeoDocument = service.getDocumentById(uid);
 
             DocumentDTO document = new DocumentDTO();
@@ -102,11 +120,18 @@ public class NuxeoRestController {
         }
     }
 
-    @RequestMapping(value={"/search/documentsByTag"}, method = RequestMethod.GET, consumes = {MediaType.APPLICATION_JSON_VALUE,
+    /**
+     * Devuelve una lista de documentos que tienen las etiquetas especificadas en la solicitud.
+     *
+     * @param tags Una lista de etiquetas para buscar.
+     * @return Una lista de documentos que coinciden con las etiquetas.
+     */
+    @RequestMapping(value={"/search/documentsByTags"}, method = RequestMethod.GET, consumes = {MediaType.APPLICATION_JSON_VALUE,
             MediaType.MULTIPART_FORM_DATA_VALUE})
     public @ResponseBody ResponseEntity<?> getDocumentByTag(@RequestParam List<String> tags) {
         try {
             if (tags.size() >= 1){
+                //TODO: catch error inside service.
                 ResponseNuxeo response = service.getDocumentsByTag(tags);
                 logger.debug("Result response {} ", response);
                 return ResponseEntity.ok(response.searchNuxeoDocument);
