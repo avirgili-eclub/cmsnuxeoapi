@@ -16,6 +16,7 @@ RUN mvn -e -s settings.xml dependency:go-offline
 
 # Cache Maven dependencies
 COPY ../pom.xml .
+COPY ../local-maven-repo ./local-maven-repo
 RUN mvn dependency:go-offline
 
 # Build project
@@ -28,8 +29,10 @@ FROM eclipse-temurin:11-jre-alpine
 LABEL maintainer="avirgili@eclub.com.py"
 
 # Create system user
-RUN addgroup --system spring
-RUN adduser --system spring --ingroup spring
+RUN apk add --no-cache alpine-conf \
+    && setup-timezone -z America/Asuncion \
+    && addgroup --system spring \
+    && adduser --system spring --ingroup spring
 USER spring:spring
 
 WORKDIR /home/spring
