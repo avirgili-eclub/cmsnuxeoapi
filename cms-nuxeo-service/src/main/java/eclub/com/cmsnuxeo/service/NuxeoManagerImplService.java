@@ -54,7 +54,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     @Value("${nuxeo.api.password}")
     private String password;
 
-    public static final String MAX_TRANSFER_SIZE = "4294967295";
+    public static final String MAX_TRANSFER_SIZE = "4672949295";
 
 
     /**
