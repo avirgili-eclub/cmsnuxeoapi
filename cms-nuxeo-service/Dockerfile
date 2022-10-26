@@ -16,7 +16,7 @@ RUN mvn -e -s settings.xml dependency:go-offline
 
 # Cache Maven dependencies
 COPY ../pom.xml .
-COPY ../local-maven-repo ./local-maven-repo
+COPY ../local-maven-repo/ ../local-maven-repo/
 RUN mvn dependency:go-offline
 
 # Build project
