@@ -9,18 +9,20 @@ ENV GITHUB_TOKEN=$github_token
 
 WORKDIR /build
 
+# Repositorio local
+COPY local-maven-repo /local-maven-repo
+
 # Cache Maven dependencies
-COPY ./pom.xml .
-COPY ./settings.xml .
+COPY cms-nuxeo-service/pom.xml .
+COPY cms-nuxeo-service/settings.xml .
 RUN mvn -e -s settings.xml dependency:go-offline
 
 # Cache Maven dependencies
-COPY ../pom.xml .
-COPY ../local-maven-repo/ ../local-maven-repo/
-RUN mvn dependency:go-offline
+#COPY ../pom.xml .
+#RUN mvn dependency:go-offline
 
 # Build project
-COPY ./src/ ./src/
+COPY cms-nuxeo-service/src ./src/
 RUN mvn -e -s settings.xml package -DskipTests
 
 
