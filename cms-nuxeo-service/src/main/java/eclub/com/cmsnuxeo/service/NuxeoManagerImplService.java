@@ -512,19 +512,24 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
     // Conversión de una cadena JSON en un objeto DocumentDTO.
     public DocumentDTO convertDocumentJsonToDTO(String document, List<MultipartFile> files) {
         try {
-            DocumentDTO documentObjet;
+            DocumentDTO nuxeoDocument;
             ObjectMapper mapper = new ObjectMapper();
-            documentObjet = mapper.readValue(document, DocumentDTO.class);
-            documentObjet.fileList = new ArrayList<>();
+            nuxeoDocument = mapper.readValue(document, DocumentDTO.class);
+            nuxeoDocument.fileList = new ArrayList<>();
+            logger.debug("nuxeoDocument :: -> {}", nuxeoDocument);
+            logger.debug("cant files {}", files.size());
             files.forEach(multipartFile -> {
                 try {
-                    documentObjet.fileList.add(multipartToFile(multipartFile, multipartFile.getOriginalFilename()));
+                    logger.debug("multipartFile to get: {}", multipartFile);
+                    logger.debug("multipartFile name: {}",multipartFile.getName());
+                    logger.debug("multipartFile orignalName: {}", multipartFile.getOriginalFilename());
+                    nuxeoDocument.fileList.add(multipartToFile(multipartFile, multipartFile.getOriginalFilename()));
                 } catch (IOException e) {
                     logger.error(e.getMessage());
                     throw new RuntimeException(e);
                 }
             });
-            return documentObjet;
+            return nuxeoDocument;
 
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);

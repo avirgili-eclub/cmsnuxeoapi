@@ -63,7 +63,7 @@ public class NuxeoRestController {
 
         } catch (Exception e) {
             logger.error("Error Occurred: ", e.getMessage());
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.I_AM_A_TEAPOT);
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
