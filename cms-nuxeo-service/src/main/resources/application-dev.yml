@@ -1,9 +1,9 @@
 server:
   port: ${SERVER_PORT}
-debug: true #{DEBUG_ON}
+debug:  ${DEBUG_ON}
 logging:
   level:
-    root: INFO #${LEVEL_ROOT}
+    root: ${LEVEL_ROOT:INFO}
 nuxeo:
   api:
     url: ${NUXEO_API_URL}
