@@ -3,6 +3,8 @@ package eclub.com.cmsnuxeo.controller;
 import eclub.com.cmsnuxeo.dto.*;
 import eclub.com.cmsnuxeo.exception.NuxeoManagerException;
 import eclub.com.cmsnuxeo.service.NuxeoManagerService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -53,6 +55,10 @@ public class NuxeoRestController {
      */
     @RequestMapping(value={"/onboarding/new", "/onboarding/approve"}, method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE,
     MediaType.MULTIPART_FORM_DATA_VALUE})
+    @Operation(summary = "Creación o aprobacion de onboarding en nuexeo.",
+    description = "Endpoint que recibe un DocumentDTO con los archivos que iran a su carpeta de solicitud.",
+    parameters = {@Parameter(name = "document", description = "\"{\\\"costumer\\\":\\\"6954956\\\", \\\"application_eclub\\\":{\\\"application_number\\\":\\\"2002002\\\", \\\"application_type\\\":1}, \\\"tags\\\":[\\\"9792594\\\",\\\"onboarding\\\"]}\""),
+            @Parameter(name = "files", description = "Array de archivos agregados como multipart file.")})
     public @ResponseBody ResponseEntity<?> newApplication(@RequestPart("document") String document,
                                                           @RequestPart("files") List<MultipartFile> files) {
         try {
