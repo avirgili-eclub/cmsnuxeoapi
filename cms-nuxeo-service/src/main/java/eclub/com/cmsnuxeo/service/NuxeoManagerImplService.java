@@ -101,7 +101,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
                 throw new RuntimeException(e);
             }
         }
-        if (responseNuxeo.nuxeoDocuments.size() < 1) {
+        if (responseNuxeo.nuxeoDocuments.isEmpty()) {
             responseNuxeo.success = false;
             responseNuxeo.friendlyErrorMessage = "No se pudo crear el documento.";
         }
@@ -149,8 +149,13 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return formFolder;
     }
 
+    /**
+     * Esta función actualiza un documento en Nuxeo
+     *
+     * @param document El documento a actualizar.
+     * @return Un objeto ResponseNuxeo.
+     */
     @Override
-    // El código está actualizando un documento en Nuxeo.
     public ResponseNuxeo updateDocument(DocumentDTO document) {
 
         ResponseNuxeo responseNuxeo = new ResponseNuxeo();
@@ -172,7 +177,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
                 boolean batchUploaded = verifiedBatch(batchDocument.batchId);
 
                 if (!batchUploaded) {
-                    logger.info("Upload failed for file: " + batchDocument.name);
+                    logger.info("Upload failed for file: ", batchDocument.name);
                     responseNuxeo.success = false;
                     responseNuxeo.friendlyErrorMessage = "Fallo la subida de archivo.";
                     return responseNuxeo;
@@ -219,9 +224,9 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             return responseNuxeo;
 
         } catch (ParseException | IOException e) {
-            logger.error("Message: ", e.getMessage());
-            logger.error("Cause: ", e.getCause());
-            responseNuxeo.friendlyErrorMessage = "Ocurrio un error al intentar actualizar el documento.";
+            logger.error("Message: {}", e.getMessage());
+            logger.error("Cause: {}", e.getCause());
+            responseNuxeo.friendlyErrorMessage = "Ocurrió un error al intentar actualizar el documento.";
             responseNuxeo.success = false;
             return responseNuxeo;
         }
@@ -438,8 +443,8 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return null;
     }
 
-    @Override
     // Obtener un documento por su id.
+    @Override
     public NuxeoDocument getDocumentById(String id) throws NuxeoManagerException {
         //TODO: improve method of "createHttpHeaders"
         HttpHeaders headers = createHttpHeaders(user, password);
@@ -473,8 +478,14 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return null;
     }
 
+    // La función crea un query para obtener los documentos por una o varias etiquetas.
+    /**
+     * Esta función se utiliza para obtener todos los documentos que tienen una etiqueta específica
+     *
+     * @param tags Lista de etiquetas a buscar.
+     * @return Una lista de documentos que tienen la etiqueta.
+     */
     @Override
-    // La funcion crea un query para obtener los documentos por una o varias etiquetas.
     public ResponseNuxeo getDocumentsByTag(List<String> tags) {
         //TODO: improve method of "createHttpHeaders"
         HttpHeaders headers = createHttpHeaders(user, password);
@@ -508,21 +519,28 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         return result;
     }
 
-    @Override
     // Conversión de una cadena JSON en un objeto DocumentDTO.
+    /**
+     * Convierte una cadena JSON en un objeto DocumentDTO.
+     *
+     * @param document El documento JSON que se convertirá en un objeto DocumentDTO.
+     * @param files La lista de archivos que se cargarán en Nuxeo.
+     * @return Un objeto DocumentDTO
+     */
+    @Override
     public DocumentDTO convertDocumentJsonToDTO(String document, List<MultipartFile> files) {
         try {
             DocumentDTO nuxeoDocument;
             ObjectMapper mapper = new ObjectMapper();
             nuxeoDocument = mapper.readValue(document, DocumentDTO.class);
             nuxeoDocument.fileList = new ArrayList<>();
-            logger.debug("nuxeoDocument :: -> {}", nuxeoDocument);
-            logger.debug("cant files {}", files.size());
+            logger.info("nuxeoDocument :: -> {}", nuxeoDocument);
+            logger.info("cant files {}", files.size());
             files.forEach(multipartFile -> {
                 try {
-                    logger.debug("multipartFile to get: {}", multipartFile);
-                    logger.debug("multipartFile name: {}",multipartFile.getName());
-                    logger.debug("multipartFile orignalName: {}", multipartFile.getOriginalFilename());
+                    logger.info("multipartFile to get: {}", multipartFile);
+                    logger.info("multipartFile name: {}",multipartFile.getName());
+                    logger.info("multipartFile orignalName: {}", multipartFile.getOriginalFilename());
                     nuxeoDocument.fileList.add(multipartToFile(multipartFile, multipartFile.getOriginalFilename()));
                 } catch (IOException e) {
                     logger.error(e.getMessage());
@@ -629,7 +647,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
      * @return Un objeto de archivo.
      */
     private static File multipartToFile(MultipartFile multipart, String fileName) throws IllegalStateException, IOException {
-        File convFile = new File(System.getProperty("java.io.tmpdir") + fileName);
+        File convFile = new File(System.getProperty("java.io.tmpdir"), fileName);
         multipart.transferTo(convFile);
         return convFile;
     }

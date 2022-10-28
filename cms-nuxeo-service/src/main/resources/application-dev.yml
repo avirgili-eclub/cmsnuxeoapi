@@ -12,6 +12,9 @@ nuxeo:
 configuracion:
   ambiente: ${ENVIRONMENT:development} #${ENVIRONMENT}
 spring:
+  output:
+    ansi:
+      enabled: always
   application:
     name: ${APP_NAME:nuxeo-manager-service} #${APP_NAME}
   servlet:
