@@ -1,6 +1,6 @@
 server:
   port: ${SERVER_PORT}
-debug:  ${DEBUG_ON}
+debug:  ${DEBUG_ON:false}
 logging:
   level:
     root: ${LEVEL_ROOT:INFO}
