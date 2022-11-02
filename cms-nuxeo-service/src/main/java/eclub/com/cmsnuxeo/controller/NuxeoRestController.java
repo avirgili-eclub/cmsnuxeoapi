@@ -47,22 +47,47 @@ public class NuxeoRestController {
     }
     /**
      * La función toma una cadena JSON y una lista de archivos, convierte la cadena JSON en un objeto DocumentDTO y luego
-     * llama a la función newApplication en la capa de servicio para crear y/o aprobar un documento.
+     * llama a la función newApplication en la capa de servicio para crear y/o aprobar segun tipo de documento.
      *
      * @param document Esta es la cadena JSON que contiene los metadatos del documento.
      * @param files Esta es una lista de los archivos que se cargan.
      * @return Entidad de respuesta<ResponseNuxeo>
      */
-    @RequestMapping(value={"/onboarding/new", "/onboarding/approve"}, method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE,
+    @RequestMapping(value={"/onboarding/new"}, method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE,
     MediaType.MULTIPART_FORM_DATA_VALUE})
-    @Operation(summary = "Creación o aprobacion de onboarding en nuexeo.",
+    @Operation(summary = "Crea una solicitud de Onboarding en Nuxeo.",
     description = "Endpoint que recibe un DocumentDTO con los archivos que iran a su carpeta de solicitud.",
-    parameters = {@Parameter(name = "document", description = "\"{\\\"costumer\\\":\\\"6954956\\\", \\\"application_eclub\\\":{\\\"application_number\\\":\\\"2002002\\\", \\\"application_type\\\":1}, \\\"tags\\\":[\\\"9792594\\\",\\\"onboarding\\\"]}\""),
+    parameters = {@Parameter(name = "document", description = "\"{\\\"costumer\\\":\\\"6954956\\\", \\\"application_eclub\\\":{\\\"application_number\\\":\\\"2002002\\\"}, \\\"tags\\\":[\\\"6954956\\\",\\\"onboarding\\\"]}\""),
             @Parameter(name = "files", description = "Array de archivos agregados como multipart file.")})
     public @ResponseBody ResponseEntity<?> newApplication(@RequestPart("document") String document,
                                                           @RequestPart("files") List<MultipartFile> files) {
+        DocumentDTO documentDTO = service.convertDocumentJsonToDTO(document, files);
+        documentDTO.getApplicationEclub().setApplicationType(EApplicationType.Onboarding);
+        return create(documentDTO, files);
+    }
+    /**
+     * La función toma una cadena JSON y una lista de archivos, convierte la cadena JSON en un objeto DocumentDTO y luego
+     * llama a la función newApplication en la capa de servicio para crear y/o aprobar un documento segun su tipo.
+     *
+     * @param document Esta es la cadena JSON que contiene los metadatos del documento.
+     * @param files Esta es una lista de los archivos que se cargan.
+     * @return Entidad de respuesta<ResponseNuxeo>
+     */
+    @RequestMapping(value={ "/onboarding/approve"}, method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE,
+            MediaType.MULTIPART_FORM_DATA_VALUE})
+    @Operation(summary = "Crea un expediente en Nuxeo. (Aprobación de solicitud onboarding)",
+            description = "Endpoint que recibe un DocumentDTO con los archivos que iran a su carpeta de expediente.",
+            parameters = {@Parameter(name = "document", description = "\"{\\\"costumer\\\":\\\"6954956\\\", \\\"application_eclub\\\":{\\\"application_number\\\":\\\"2002002\\\"}, \\\"tags\\\":[\\\"6954956\\\",\\\"onboarding\\\"]}\""),
+                    @Parameter(name = "files", description = "Array de archivos agregados como multipart file.")})
+    public @ResponseBody ResponseEntity<?> approveApplication(@RequestPart("document") String document,
+                                                          @RequestPart("files") List<MultipartFile> files) {
+        DocumentDTO documentDTO = service.convertDocumentJsonToDTO(document, files);
+        documentDTO.getApplicationEclub().setApplicationType(EApplicationType.Expedient);
+        return create(documentDTO, files);
+    }
+
+    private ResponseEntity<?> create(DocumentDTO documentDTO, @RequestPart("files") List<MultipartFile> files) {
         try {
-            DocumentDTO documentDTO = service.convertDocumentJsonToDTO(document, files);
             ResponseNuxeo response = service.newApplication(documentDTO);
             logger.debug("Result response {} ", response);
             return ResponseEntity.ok(response);
