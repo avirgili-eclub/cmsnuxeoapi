@@ -28,7 +28,7 @@ public class NuxeoRestController {
     private final Environment env;
     private final NuxeoManagerService service;
 
-    final static Logger logger = LoggerFactory.getLogger(NuxeoRestController.class);
+    static final Logger log = LoggerFactory.getLogger(NuxeoRestController.class);
 
     public NuxeoRestController(Environment env, NuxeoManagerService service) {
         this.env = env;
@@ -65,6 +65,28 @@ public class NuxeoRestController {
         documentDTO.getApplicationEclub().setApplicationType(EApplicationType.Onboarding);
         return create(documentDTO, files);
     }
+
+    @RequestMapping(value={"/comercio/create"}, method = RequestMethod.POST, consumes = {MediaType.APPLICATION_JSON_VALUE,
+            MediaType.MULTIPART_FORM_DATA_VALUE})
+    @Operation(summary = "Crea una solicitud de Onboarding en Nuxeo.",
+            description = "Endpoint que recibe un DocumentDTO con los archivos que iran a su carpeta de solicitud.",
+            parameters = {@Parameter(name = "document", description = "\"{\\\"costumer\\\":\\\"6954956\\\", \\\"application_eclub\\\":{\\\"application_number\\\":\\\"2002002\\\"}, \\\"tags\\\":[\\\"6954956\\\",\\\"onboarding\\\"]}\""),
+                    @Parameter(name = "files", description = "Array de archivos agregados como multipart file.")})
+    public @ResponseBody ResponseEntity<?> createBusiness(@RequestPart("document") String document,
+                                                          @RequestPart("files") List<MultipartFile> files) {
+        try {
+            DocumentDTO documentDTO = service.convertDocumentJsonToDTO(document, files);
+            documentDTO.getApplicationEclub().setApplicationType(EApplicationType.Comercios);
+            ResponseNuxeo response = service.newBusiness(documentDTO);
+            log.debug("Result response {} ", response);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error(e.getMessage());
+            return ResponseEntity.internalServerError().body("Ocurrio un error al intentar crear el comercio.");
+        }
+
+    }
+
     /**
      * La función toma una cadena JSON y una lista de archivos, convierte la cadena JSON en un objeto DocumentDTO y luego
      * llama a la función newApplication en la capa de servicio para crear y/o aprobar un documento segun su tipo.
@@ -89,11 +111,11 @@ public class NuxeoRestController {
     private ResponseEntity<?> create(DocumentDTO documentDTO, @RequestPart("files") List<MultipartFile> files) {
         try {
             ResponseNuxeo response = service.newApplication(documentDTO);
-            logger.debug("Result response {} ", response);
+            log.debug("Result response {} ", response);
             return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            logger.error("Error Occurred: ", e.getMessage());
+            log.error("Error Occurred: {}", e.getMessage());
             return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -112,9 +134,9 @@ public class NuxeoRestController {
     public @ResponseBody ResponseEntity<ResponseNuxeo> updateDocument(@RequestParam(required = false) String name,
                                                                       @RequestParam(required = false) String description,
                                                                       @RequestParam String uid,
-                                                                      @RequestPart(required = false) MultipartFile file) throws IOException {
+                                                                      @RequestPart(required = false) MultipartFile file) throws IOException, NuxeoManagerException {
         try {
-            //TODO: quitar logica del controller y pasarla en el serivio.
+            //TODO: quitar logica del controller y pasarla en el servicio.
             NuxeoDocument nuxeoDocument = service.getDocumentById(uid);
 
             DocumentDTO document = new DocumentDTO();
@@ -142,8 +164,7 @@ public class NuxeoRestController {
             return ResponseEntity.ok(result);
 
         } catch (NuxeoManagerException e) {
-            logger.error(e.getMessage());
-            logger.error(e.getStackTrace().toString());
+            log.error(e.getMessage());
             ResponseNuxeo result = new ResponseNuxeo();
             result.success = false;
             result.friendlyErrorMessage = "Docummento no encontrado";
@@ -161,17 +182,17 @@ public class NuxeoRestController {
             MediaType.MULTIPART_FORM_DATA_VALUE})
     public @ResponseBody ResponseEntity<?> getDocumentByTag(@RequestParam List<String> tags) {
         try {
-            if (tags.size() >= 1){
+            if (!tags.isEmpty()){
                 //TODO: catch error inside service.
                 ResponseNuxeo response = service.getDocumentsByTag(tags);
-                logger.debug("Result response {} ", response);
+                log.debug("Result response {} ", response);
                 return ResponseEntity.ok(response.searchNuxeoDocument);
             }else{
                 return  ResponseEntity.ok(new SearchNuxeoDocument());
             }
         } catch (Exception e) {
-            logger.error("Error Occurred: ", e.getMessage());
-            return new ResponseEntity<>(e.getMessage(), HttpStatus.I_AM_A_TEAPOT);
+            log.error("Error Occurred: {}", e.getMessage());
+            return new ResponseEntity<>(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
     public static File multipartToFile(MultipartFile multipart, String fileName) throws IllegalStateException, IOException {

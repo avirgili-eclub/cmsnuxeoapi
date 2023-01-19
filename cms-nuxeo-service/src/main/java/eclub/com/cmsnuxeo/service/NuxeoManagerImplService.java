@@ -8,6 +8,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import eclub.com.cmsnuxeo.exception.NuxeoManagerException;
 
 
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.io.IOUtils;
 import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
@@ -37,6 +38,7 @@ import java.util.stream.Collectors;
 
 
 @Service
+@Slf4j
 /**
  * Esta clase es un servicio que implementa la interfaz NuxeoManagerService
  */
@@ -44,7 +46,6 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
     @Autowired
     private RestTemplate restTemplate;
-    final static Logger logger = LoggerFactory.getLogger(NuxeoManagerImplService.class);
     @Value("${nuxeo.api.url}")
     private String url;
 
@@ -64,18 +65,17 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
      * @param path La ruta donde se creará el documento.
      * @return Un objeto ResponseNuxeo el cual contiene si fue success y el objeto/s creado/s.
      */
-    private ResponseNuxeo createDocument(DocumentDTO document, String path) throws NuxeoManagerException, ParseException {
-        ResponseNuxeo responseNuxeo = new ResponseNuxeo();
-        responseNuxeo.nuxeoDocuments = new ArrayList<>();
+    private void createDocument(DocumentDTO document, String path) throws NuxeoManagerException {
         for (File file : document.fileList) {
             try {
                 //create batch to upload documents
                 String batchId = createBatchId();
 
                 if (batchId == null || batchId.isEmpty()) {
-                    responseNuxeo.success = false;
-                    responseNuxeo.friendlyErrorMessage = "Error al crear el batch.";
-                    return responseNuxeo;
+                    throw new NuxeoManagerException("Batch id null");
+//                    responseNuxeo.success = false;
+//                    responseNuxeo.friendlyErrorMessage = "Error al crear el batch.";
+//                    return responseNuxeo;
                 }
                 //upload document to the batch
                 BatchDTO batchDocument = uploadDocument(file, batchId, 0/*fileList.indexOf(file)*/);
@@ -84,28 +84,21 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
                 //verified that the batch has created and with files
                 boolean batchUploaded = verifiedBatch(batchDocument.batchId);
                 if (!batchUploaded) {
-                    logger.info("Upload failed for file: " + batchDocument.name);
-                    responseNuxeo.success = false;
-                    responseNuxeo.friendlyErrorMessage = "Fallo la subida de archivo.";
-                    break;
+                    log.info("Upload failed for file: " + batchDocument.name);
+                    throw new NuxeoManagerException("Upload failed for file: " + batchDocument.name);
                 }
-                logger.info(batchDocument.batchId);
+                log.info("Batch created with id: {}", batchDocument.batchId);
                 //create nuxeo document with the file from the batch.
                 NuxeoDocument nuxeoDocument = createNuxeoDocumentWithPath(batchDocument, path, document.getTags());
                 //TODO: Optimizar la creacion de versionado del documento.
                 //make the nuxeo document to be versional.
                 createVersioningDocument(nuxeoDocument.uid, "");
-                responseNuxeo.nuxeoDocuments.add(nuxeoDocument);
 
-            } catch (IOException e) {
-                throw new RuntimeException(e);
+            } catch (Exception e) {
+                log.error(e.getMessage());
+                throw new NuxeoManagerException(e.getMessage());
             }
         }
-        if (responseNuxeo.nuxeoDocuments.isEmpty()) {
-            responseNuxeo.success = false;
-            responseNuxeo.friendlyErrorMessage = "No se pudo crear el documento.";
-        }
-        return responseNuxeo;
     }
 
     /**
@@ -117,7 +110,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
      * @return Un objeto ResponseNuxeo.
      */
     @Override
-    public ResponseNuxeo newApplication(DocumentDTO document) throws NuxeoManagerException, Exception {
+    public ResponseNuxeo newApplication(DocumentDTO document) throws Exception {
         String applicationType = document.getApplicationEclub().getApplicationType().name();
         //get the application folder (onboarding, expedient, etc).
         //This folder must be created inside nuxeo by an admin
@@ -140,13 +133,40 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         if (!formFolder.success)
             return formFolder;
         //create nuxeo documents inside folder.
-        ResponseNuxeo result = createDocument(document, formFolder.nuxeoDocument.path);
-
-        //TODO: check/think about this scenario
-        if (!result.success) {
-            deleteDocumentByUid(formFolder.nuxeoDocument.uid);
+        try {
+            createDocument(document, formFolder.nuxeoDocument.path);
+        } catch (Exception e) {
+            log.error("Error al crear documentos en la carpeta: {}", formFolder.nuxeoDocument.path);
+            log.error(e.getMessage());
+            throw new RuntimeException(e);
         }
         return formFolder;
+    }
+
+    @Override
+    public ResponseNuxeo newBusiness(DocumentDTO document) throws Exception {
+        String applicationType = document.getApplicationEclub().getApplicationType().name();
+        //get the application folder (onboarding, expedient, etc).
+        //This folder must be created inside nuxeo by an admin
+        NuxeoDocument applicationFolder = getDocumentByPath(applicationType);
+        if (applicationFolder == null) {
+            //TODO: return a response nuxeo with an error number.
+            return null;
+        }
+        //check if directory exists before create it to avoid duplicate.
+        NuxeoDocument clientFolder = getDocumentByPath(applicationFolder.title + "/" + document.getCostumer());
+        ResponseNuxeo result = new ResponseNuxeo();
+        if (clientFolder == null) {
+            //crea la carpeta con el numero de documento del cliente.
+            result = createFolderWithParentId(applicationFolder.uid, document.getCostumer());
+        }
+        //create nuxeo documents inside folder.
+        createDocument(document, result.nuxeoDocument.path);
+        //TODO: check/think about this scenario
+//        if (!documentsResult.success) {
+//            deleteDocumentByUid(documentsResult.nuxeoDocument.uid);
+//        }
+        return result;
     }
 
     /**
@@ -165,10 +185,11 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             if (document.file != null) {
                 String batchId = createBatchId();
                 if (batchId == null || batchId.isEmpty()) {
-                    responseNuxeo.success = false;
-                    responseNuxeo.friendlyErrorMessage = "Error al crear el batch.";
-                    logger.info(responseNuxeo.friendlyErrorMessage);
-                    return responseNuxeo;
+                    throw new NuxeoManagerException("Batch id null");
+//                    responseNuxeo.success = false;
+//                    responseNuxeo.friendlyErrorMessage = "Error al crear el batch.";
+//                    log.info(responseNuxeo.friendlyErrorMessage);
+//                    return responseNuxeo;
                 }
 
                 BatchDTO batchDocument = uploadDocument(document.file, batchId, 0/*fileList.indexOf(file)*/);
@@ -177,13 +198,13 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
                 boolean batchUploaded = verifiedBatch(batchDocument.batchId);
 
                 if (!batchUploaded) {
-                    logger.info("Upload failed for file: ", batchDocument.name);
+                    log.info("Upload failed for file: ", batchDocument.name);
                     responseNuxeo.success = false;
                     responseNuxeo.friendlyErrorMessage = "Fallo la subida de archivo.";
                     return responseNuxeo;
                 }
 
-                logger.info(batchDocument.batchId);
+                log.info(batchDocument.batchId);
 
                 content.put("upload-batch", batchDocument.batchId);
                 content.put("upload-fileId", batchDocument.fileIdx);
@@ -218,14 +239,13 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             responseNuxeo.nuxeoDocument = responseEntity.getBody();
             responseNuxeo.success = true;
 
-            logger.info("Headers params {} ", headers);
-            logger.info("Body params {} ", body);
+            log.info("Headers params {} ", headers);
+            log.info("Body params {} ", body);
 
             return responseNuxeo;
 
-        } catch (ParseException | IOException e) {
-            logger.error("Message: {}", e.getMessage());
-            logger.error("Cause: {}", e.getCause());
+        } catch (ParseException | IOException | NuxeoManagerException e) {
+            log.error("Error message: {}", e.getMessage());
             responseNuxeo.friendlyErrorMessage = "Ocurrió un error al intentar actualizar el documento.";
             responseNuxeo.success = false;
             return responseNuxeo;
@@ -265,8 +285,8 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         response.nuxeoDocument = responseEntity.getBody();
         response.success = true;
 
-        logger.info("Headers params {} ", headers);
-        logger.info("Body params {} ", jsonBody);
+        log.info("Headers params {} ", headers);
+        log.info("Body params {} ", jsonBody);
 
         return response;
     }
@@ -330,17 +350,17 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             responseEntity = restTemplate.postForEntity(url + "/upload/" + batchId + "/" + batchIdx, requestEntity,
                     BatchDTO.class);
         } catch (RestClientException ex) {
-            logger.error("Message: ", ex.getMessage());
-            logger.error("Cause: ", ex.getCause());
-            logger.error("StackTrace: ", Arrays.asList(ex.getStackTrace())
+            log.error("Message: ", ex.getMessage());
+            log.error("Cause: ", ex.getCause());
+            log.error("StackTrace: ", Arrays.asList(ex.getStackTrace())
                     .stream()
                     .map(Objects::toString)
                     .collect(Collectors.joining("\n")));
             //TODO: remove throw an return a response nuxeo instead of batchDto.
             throw new RuntimeException(ex);
         }
-        logger.info("Headers params {} ", headers);
-        logger.info("Body params {} ", responseEntity.getBody());
+        log.info("Headers params {} ", headers);
+        log.info("Body params {} ", responseEntity.getBody());
         return responseEntity.getBody();
     }
 
@@ -360,7 +380,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
         ResponseEntity<String> response = restTemplate.exchange(url + "/upload/" + batchId, HttpMethod.GET, entity,
                 String.class);
 
-        logger.info("Headers params {} ", headers);
+        log.info("Headers params {} ", headers);
 
         if (response.getStatusCodeValue() == 200)
             success = true;
@@ -432,8 +452,8 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
 
         ResponseEntity<NuxeoDocument> response = restTemplate.exchange(url + "/path" + path, HttpMethod.POST, entity, NuxeoDocument.class);
 
-        logger.info("Headers params {} ", headers);
-        logger.info("Body params {} ", body);
+        log.info("Headers params {} ", headers);
+        log.info("Body params {} ", body);
 
         return response.getBody();
     }
@@ -461,16 +481,16 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             if (((HttpClientErrorException.NotFound) e).getStatusCode() == HttpStatus.NOT_FOUND) {
                 return null;
             }
-            logger.error("Message: ", e.getMessage());
-            logger.error("Cause: ", e.getCause());
-            logger.error("StackTrace: ", Arrays.asList(e.getStackTrace())
+            log.error("Message: ", e.getMessage());
+            log.error("Cause: ", e.getCause());
+            log.error("StackTrace: ", Arrays.asList(e.getStackTrace())
                     .stream()
                     .map(Objects::toString)
                     .collect(Collectors.joining("\n")));
             throw new NuxeoManagerException(e.getMessage(), e.getCause());
         }
-        logger.info("Headers params {} ", headers);
-        logger.info("Response: {}", response);
+        log.info("Headers params {} ", headers);
+        log.info("Response: {}", response);
 
         if (response.getStatusCodeValue() == 200)
             return response.getBody();
@@ -504,13 +524,13 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             query[0] += " )" + " and ecm:isLatestVersion = 1";
             response = restTemplate.exchange(query[0], HttpMethod.GET, entity,
                     SearchNuxeoDocument.class);
-            logger.info("body response: {}", response.getBody());
+            log.info("body response: {}", response.getBody());
         }else {
             response = restTemplate.exchange(url + "/search/lang/NXQL/execute?query=SELECT * FROM Document WHERE ecm:tag = "+ tags.get(0) + " and ecm:isLatestVersion = 1", HttpMethod.GET, entity,
                     SearchNuxeoDocument.class);
-            logger.info("body response: {}", response.getBody());
+            log.info("body response: {}", response.getBody());
         }
-        logger.info("Headers params {} ", headers);
+        log.info("Headers params {} ", headers);
 
         ResponseNuxeo result = new ResponseNuxeo();
         result.success = true;
@@ -534,16 +554,16 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             ObjectMapper mapper = new ObjectMapper();
             nuxeoDocument = mapper.readValue(document, DocumentDTO.class);
             nuxeoDocument.fileList = new ArrayList<>();
-            logger.info("nuxeoDocument :: -> {}", nuxeoDocument);
-            logger.info("cant files {}", files.size());
+            log.info("nuxeoDocument :: -> {}", nuxeoDocument);
+            log.info("cant files {}", files.size());
             files.forEach(multipartFile -> {
                 try {
-                    logger.info("multipartFile to get: {}", multipartFile);
-                    logger.info("multipartFile name: {}",multipartFile.getName());
-                    logger.info("multipartFile orignalName: {}", multipartFile.getOriginalFilename());
+                    log.info("multipartFile to get: {}", multipartFile);
+                    log.info("multipartFile name: {}",multipartFile.getName());
+                    log.info("multipartFile orignalName: {}", multipartFile.getOriginalFilename());
                     nuxeoDocument.fileList.add(multipartToFile(multipartFile, multipartFile.getOriginalFilename()));
                 } catch (IOException e) {
-                    logger.error(e.getMessage());
+                    log.error(e.getMessage());
                     throw new RuntimeException(e);
                 }
             });
@@ -596,7 +616,7 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
             }
             throw new NuxeoManagerException(e.getMessage(), e.getCause());
         }
-        logger.info("Headers params {} ", headers);
+        log.info("Headers params {} ", headers);
 
         if (response.getStatusCodeValue() == 200)
             return response.getBody();
@@ -612,31 +632,35 @@ public class NuxeoManagerImplService implements NuxeoManagerService {
      * @param id la identificación del documento
      * @param description La descripción del documento.
      */
-    private void createVersioningDocument(String id, String description) {
+    private void createVersioningDocument(String id, String description) throws NuxeoManagerException {
 
-        JSONObject properties = new JSONObject();
-        properties.put("dc:description", description);
+        try {
+            JSONObject properties = new JSONObject();
+            properties.put("dc:description", description);
 
-        JSONObject body = new JSONObject();
-        body.put("entity-type", "document");
-        body.put("uid", id);
-        body.put("repository", "default");
-        body.put("properties", properties);
+            JSONObject body = new JSONObject();
+            body.put("entity-type", "document");
+            body.put("uid", id);
+            body.put("repository", "default");
+            body.put("properties", properties);
 
-        //TODO: improve method of "createHttpHeaders"
-        HttpHeaders headers = createHttpHeaders(user, password);
-        headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
-        headers.set("Nuxeo-Transaction-Timeout", "3");
-        headers.set("X-NXproperties", "*");
-        headers.set("X-NXRepository", "default");
-        headers.set("X-Versioning-Option", "minor");
+            //TODO: improve method of "createHttpHeaders"
+            HttpHeaders headers = createHttpHeaders(user, password);
+            headers.setAccept(Arrays.asList(MediaType.APPLICATION_JSON));
+            headers.set("Nuxeo-Transaction-Timeout", "3");
+            headers.set("X-NXproperties", "*");
+            headers.set("X-NXRepository", "default");
+            headers.set("X-Versioning-Option", "minor");
 
-        HttpEntity<?> entity = new HttpEntity<>(body, headers);
-        ResponseEntity<String> responseEntity = restTemplate.exchange(url + "/id/" + id, HttpMethod.PUT, entity, String.class);
-        logger.info("Headers params {} ", headers);
-        logger.info("Body params {} ", body);
-        logger.info("Status code {} ", responseEntity.getStatusCode());
-
+            HttpEntity<?> entity = new HttpEntity<>(body, headers);
+            ResponseEntity<String> responseEntity = restTemplate.exchange(url + "/id/" + id, HttpMethod.PUT, entity, String.class);
+            log.info("Headers params {} ", headers);
+            log.info("Body params {} ", body);
+            log.info("Status code {} ", responseEntity.getStatusCode());
+        } catch (RestClientException e) {
+            log.error(e.getMessage());
+            throw new NuxeoManagerException(e.getMessage());
+        }
     }
 
     /**
