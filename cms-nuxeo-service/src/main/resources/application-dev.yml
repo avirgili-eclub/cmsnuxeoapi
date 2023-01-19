@@ -1,9 +1,9 @@
 server:
   port: ${SERVER_PORT}
-debug: true #{DEBUG_ON}
+debug:  ${DEBUG_ON:false}
 logging:
   level:
-    root: INFO #${LEVEL_ROOT}
+    root: ${LEVEL_ROOT:INFO}
 nuxeo:
   api:
     url: ${NUXEO_API_URL}
@@ -12,6 +12,9 @@ nuxeo:
 configuracion:
   ambiente: ${ENVIRONMENT:development} #${ENVIRONMENT}
 spring:
+  output:
+    ansi:
+      enabled: always
   application:
     name: ${APP_NAME:nuxeo-manager-service} #${APP_NAME}
   servlet:

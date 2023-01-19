@@ -11,6 +11,7 @@ import java.util.List;
 public interface NuxeoManagerService {
 
     ResponseNuxeo newApplication(DocumentDTO document) throws Exception;
+    ResponseNuxeo newBusiness(DocumentDTO document) throws Exception;
     ResponseNuxeo updateDocument(DocumentDTO document);
     ResponseNuxeo deleteDocumentByUid(String id);
     NuxeoDocument getDocumentById(String id) throws NuxeoManagerException;

@@ -4,8 +4,8 @@ services:
     hostname: app
     restart: unless-stopped
     build:
-      context: ./cms-nuxeo-service
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile-nuxeo
     networks:
       - eclub
     ports:

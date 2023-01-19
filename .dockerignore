@@ -1,0 +1,5 @@
+**
+!cms-nuxeo-service/src
+!cms-nuxeo-service/pom.xml
+!cms-nuxeo-service/settings.xml
+!local-maven-repo
